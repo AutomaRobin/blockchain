@@ -4,8 +4,10 @@ from flask_cors import CORS
 from wallet import Wallet
 from blockchain import Blockchain
 from utility.verification import Verification
+from utility.database import Database
 
 v = Verification()
+db = Database("db/blockchaindb.sqlite")
 
 app = Flask(__name__)
 CORS(app)

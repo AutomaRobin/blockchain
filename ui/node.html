@@ -76,9 +76,10 @@
             <div v-if="error" class="alert alert-danger" role="alert">
                 {{ error }}
             </div>
-            <div v-if="success" class="alert alert-success" role="alert">
+            <pre v-if="success" class="alert alert-success" role="alert"
+                 style="white-space: pre-line; word-wrap: break-word; font-family: inherit">
                 {{ success }}
-            </div>
+            </pre>
             <div class="row">
                 <div class="col">
                     <div v-if="!walletLoading">
@@ -243,7 +244,9 @@
                     axios.post('/wallet')
                         .then(function (response) {
                             vm.error = null;
-                            vm.success = 'Created Wallet! Public Key: ' + response.data.public_key + ', Private Key: ' + response.data.private_key;
+                            vm.success = 'Created Wallet!\n\n' +
+                                'Public Key:\n' + response.data.public_key +
+                                '\n\nPrivate Key: \n' + response.data.private_key;
                             vm.wallet = {
                                 public_key: response.data.public_key,
                                 private_key: response.data.private_key
@@ -265,7 +268,9 @@
                     axios.get('/wallet')
                         .then(function (response) {
                             vm.error = null;
-                            vm.success = 'Created Wallet! Public Key: ' + response.data.public_key + ', Private Key: ' + response.data.private_key;
+                            vm.success = 'Created Wallet!\n\n' +
+                                'Public Key:\n' + response.data.public_key +
+                                '\n\nPrivate Key:\n' + response.data.private_key;
                             vm.wallet = {
                                 public_key: response.data.public_key,
                                 private_key: response.data.private_key

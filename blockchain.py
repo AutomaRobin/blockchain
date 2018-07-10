@@ -1,10 +1,8 @@
 from functools import reduce
 
-
 import json
 import requests
 
-# Import two functions from our hash_util.py file. Omit the ".py" in the import
 from utility.hash_util import hash_block
 from utility.verification import Verification
 from block import Block
