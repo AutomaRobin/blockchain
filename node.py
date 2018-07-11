@@ -42,9 +42,21 @@ def create_keys():
         return jsonify(response), 500
 
 
-@app.route('/wallet', methods=['GET'])
+@app.route('/loadwallet', methods=['POST'])
 def load_keys():
-    if wallet.load_keys():
+
+    values = request.get_json()
+    if not values:
+        response = {'message': 'No data found.'}
+        return jsonify(response), 400
+
+    if 'private_key' not in values:
+        response = {'message': 'The data is invalid.'}
+        return jsonify(response), 400
+
+    private_key = values['private_key']
+
+    if wallet.load_keys(private_key):
         global blockchain
         blockchain = Blockchain(wallet.public_key, port)
         response = {
@@ -307,5 +319,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
     wallet = Wallet(port)
+    Database("db/blockchaindb.sqlite")
     blockchain = Blockchain(wallet.public_key, port)
     app.run(host='0.0.0.0', port=port)

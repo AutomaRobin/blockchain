@@ -44,7 +44,6 @@
     <index id="16" parent="6" name="sqlite_autoindex_blockchain_1">
       <NameSurrogate>1</NameSurrogate>
       <ColNames>index</ColNames>
-      <ColumnCollations></ColumnCollations>
       <Unique>1</Unique>
     </index>
     <key id="17" parent="6">
@@ -70,7 +69,6 @@
     <index id="21" parent="7" name="sqlite_autoindex_peer_nodes_1">
       <NameSurrogate>1</NameSurrogate>
       <ColNames>id</ColNames>
-      <ColumnCollations></ColumnCollations>
       <Unique>1</Unique>
     </index>
     <key id="22" parent="7">
@@ -126,7 +124,6 @@
     <index id="33" parent="9" name="sqlite_autoindex_transactions_1">
       <NameSurrogate>1</NameSurrogate>
       <ColNames>signature</ColNames>
-      <ColumnCollations></ColumnCollations>
       <Unique>1</Unique>
     </index>
     <key id="34" parent="9">
@@ -152,7 +149,6 @@
     <index id="38" parent="10" name="sqlite_autoindex_wallet_1">
       <NameSurrogate>1</NameSurrogate>
       <ColNames>public_key</ColNames>
-      <ColumnCollations></ColumnCollations>
       <Unique>1</Unique>
     </index>
     <key id="39" parent="10">

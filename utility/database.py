@@ -89,9 +89,9 @@ class Database:
                 :columns: The columns to insert into, as a comma-separated string.
                 :data: The new data to insert, as a comma-separated string.
         """
-        query = "INSERT INTO {0} ({1}) VALUES ({2});".format(table, columns, data)
+        query = "INSERT INTO {0} ({1}) VALUES (?);".format(table, columns)
 
-        self.cursor.execute(query)
+        self.cursor.execute(query, (data,))
 
     def query(self, sql):
         """Function to query any other SQL statement.

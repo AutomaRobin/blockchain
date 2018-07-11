@@ -19,7 +19,7 @@ CREATE TABLE `blockchain` (
 );
 
 CREATE TABLE `wallet` (
-    `public_key` string  NOT NULL ,
+    `public_key` blob NOT NULL ,
     PRIMARY KEY (
         `public_key`
     )

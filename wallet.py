@@ -3,6 +3,7 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
+from utility.database import Database
 
 
 class Wallet:
@@ -24,30 +25,35 @@ class Wallet:
         """Saves the keys to a file (wallet.txt)."""
         if self.public_key is not None and self.private_key is not None:
             try:
+                db = Database("db/blockchaindb.sqlite")
                 with open('wallet-{}.txt'.format(self.node_id), mode='w') as f:
-                    f.write(self.public_key)
-                    f.write('\n')
                     f.write(self.private_key)
+
+                db.write("wallet", "public_key", self.public_key)
+                db.close()
                 return True
             except (IOError, IndexError):
                 print('Saving wallet failed...')
                 return False
 
-    def load_keys(self):
+    def load_keys(self, private_key):
         """Loads the keys from the wallet.txt file into memory."""
-        try:
-            with open('wallet-{}.txt'.format(self.node_id), mode='r') as f:
-                keys = f.readlines()
-                public_key = keys[0][:-1]
-                private_key = keys[1]
-                self.public_key = public_key
-                self.private_key = private_key
-            return True
-        except (IOError, IndexError):
-            print('Loading wallet failed...')
+        db = Database("db/blockchaindb.sqlite")
+
+        candidate_key = private_key.publickey()
+        get_public_key_query = "SELECT public_key FROM wallet WHERE public_key IS {0}".format(candidate_key)
+        public_key = db.query(get_public_key_query)
+
+        if not public_key:
             return False
 
-    def generate_keys(self):
+        if public_key:
+            self.public_key = public_key
+            self.private_key = private_key
+            return True
+
+    @staticmethod
+    def generate_keys():
         """Generate a new pair of private and public key."""
         private_key = RSA.generate(1024, Crypto.Random.new().read)
         public_key = private_key.publickey()
