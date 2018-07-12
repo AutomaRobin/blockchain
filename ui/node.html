@@ -72,6 +72,15 @@
                     </ul>
                 </div>
             </div>
+            <br>
+            <div v-if="createdWallet" class="row">
+                <div class="col">
+                    <div class="alert alert-warning">Store your private key safely! You'll need it later
+                        to keep access to your wallet.
+                        <button class="btn btn-warning" @click="createdWallet = false">Done!</button>
+                    </div>
+                </div>
+            </div>
             <hr>
             <div v-if="error" class="alert alert-danger" role="alert">
                 {{ error }}
@@ -79,6 +88,10 @@
             <pre v-if="success" class="alert alert-success" role="alert"
                  style="white-space: pre-line; word-wrap: break-word; font-family: inherit">
                 {{ success }}
+                <br>
+                <button @click="success = false" type="button" class="close" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
             </pre>
             <div class="row">
                 <div class="col">
@@ -86,11 +99,18 @@
                         <button class="btn btn-primary" @click="onCreateWallet">
                             Create new Wallet
                         </button>
-                        <button class="btn btn-primary" @click="onLoadWallet">
+                        <button class="btn btn-primary" @click="inputPrivateKey = true">
                             Load Wallet
                         </button>
+                        <div v-if="inputPrivateKey" class="form-group">
+                            <br>
+                            <input type="text" class="form-control" v-model="privateKey"
+                                   placeholder="What is your private key?">
+                        </div>
+                        <button v-if="inputPrivateKey" class="btn btn-primary"
+                        @click="onLoadWallet">Load wallet with private key</button>
+                        <button v-if="inputPrivateKey" class="btn btn-link btn-sm" @click="inputPrivateKey = false">Close</button>
                     </div>
-
                     <div v-if="walletLoading" class="lds-ring">
                         <div></div>
                         <div></div>
@@ -219,6 +239,9 @@
                 txLoading: false,
                 dataLoading: false,
                 showElement: null,
+                createdWallet: false,
+                inputPrivateKey: false,
+                privateKey: '',
                 error: null,
                 success: null,
                 funds: 0,
@@ -243,6 +266,7 @@
                     this.walletLoading = true
                     axios.post('/wallet')
                         .then(function (response) {
+                            vm.createdWallet = true;
                             vm.error = null;
                             vm.success = 'Created Wallet!\n\n' +
                                 'Public Key:\n' + response.data.public_key +
@@ -264,9 +288,12 @@
                 onLoadWallet: function () {
                     // Send Http request to load an existing wallet (from a file on the server)
                     var vm = this;
-                    this.walletLoading = true
-                    axios.get('/wallet')
+                    this.walletLoading = true;
+                    axios.post('/loadwallet', {
+                        private_key: vm.privateKey
+                    })
                         .then(function (response) {
+                            console.log(vm.privateKey);
                             vm.error = null;
                             vm.success = 'Created Wallet!\n\n' +
                                 'Public Key:\n' + response.data.public_key +
@@ -279,6 +306,7 @@
                             vm.walletLoading = false;
                         })
                         .catch(function (error) {
+                            console.log(vm.privateKey);
                             vm.success = null;
                             vm.error = error.response.data.message;
                             vm.wallet = null;

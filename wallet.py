@@ -3,6 +3,8 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
+from os import path
+from base64 import b64decode
 from utility.database import Database
 
 
@@ -28,7 +30,6 @@ class Wallet:
                 db = Database("db/blockchaindb.sqlite")
                 with open('wallet-{}.txt'.format(self.node_id), mode='w') as f:
                     f.write(self.private_key)
-
                 db.write("wallet", "public_key", self.public_key)
                 db.close()
                 return True
@@ -37,12 +38,21 @@ class Wallet:
                 return False
 
     def load_keys(self, private_key):
-        """Loads the keys from the wallet.txt file into memory."""
-        db = Database("db/blockchaindb.sqlite")
+        """Loads the wallet based on the private key."""
 
-        candidate_key = private_key.publickey()
-        get_public_key_query = "SELECT public_key FROM wallet WHERE public_key IS {0}".format(candidate_key)
-        public_key = db.query(get_public_key_query)
+        # prepare the private_key input to be transformed to the public_key
+        hex_to_pem = binascii.unhexlify(''.join(private_key))
+        pem_key = b'%s' % hex_to_pem
+        kep_priv = RSA.importKey(pem_key)
+        candidate_key = kep_priv.publickey()
+        query_key = binascii.hexlify(candidate_key.exportKey(format='DER')).decode('ascii')
+
+        # Pass the candidate key for the
+        # SQL query and search database for the public_key
+        db = Database("db/blockchaindb.sqlite")
+        public_key = db.get_wallet(query_key)
+        db.close()
+        print(public_key)
 
         if not public_key:
             return False

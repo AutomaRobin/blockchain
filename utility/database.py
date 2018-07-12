@@ -93,6 +93,22 @@ class Database:
 
         self.cursor.execute(query, (data,))
 
+    def get_wallet(self, candidate_key):
+        """Function to load wallet from the database, based on given private key.
+
+            Arguments:
+                :candidate_key: The key derived from the delivered private key
+        """
+
+        query = "SELECT * FROM wallet WHERE public_key IS (?)"
+        result = self.cursor.execute(query, [candidate_key])
+
+        if not result:
+            return False
+        else:
+            for row in result:
+                return row[0]
+
     def query(self, sql):
         """Function to query any other SQL statement.
 
