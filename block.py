@@ -1,9 +1,11 @@
 from time import time
-
+from sqlalchemy import Column, Integer, Text, Float
+from sqlalchemy.orm import relationship
 from utility.printable import Printable
+from utility.database import Base
 
 
-class Block(Printable):
+class Block(Printable, Base):
     """A single block of our blockchain.
 
     Attributes:
@@ -14,6 +16,14 @@ class Block(Printable):
         :transactions: A list of transaction which are included in the block.
         :proof: The proof of work number that yielded this block.
     """
+    __tablename__ = 'blockchain'
+    index = Column(Integer, primary_key=True)
+    previous_hash = Column(Text, nullable=False)
+    hash_of_txs = Column(Text, nullable=False)
+    proof = Column(Integer, nullable=False)
+    timestamp = Column(Float, nullable=False)
+
+    tx_in_block = relationship("Transaction", back_populates="tx_in_block")
 
     def __init__(self, index, previous_hash, transactions, proof, time=time()):
         self.index = index

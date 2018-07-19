@@ -3,14 +3,17 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
-from os import path
-from base64 import b64decode
-from utility.database import Database
+from sqlalchemy import Column, Text
+from utility.database import Base, Session
 
 
-class Wallet:
+class Wallet(Base):
     """Creates, loads and holds private and public keys. Manages transaction
     signing and verification."""
+
+    __tablename__ = 'wallet'
+    public_key = Column(Text, primary_key=True, nullable=False)
+    node_id = Column(Text, nullable=False)
 
     def __init__(self, node_id):
         self.private_key = None
@@ -27,11 +30,12 @@ class Wallet:
         """Saves the keys to a file (wallet.txt)."""
         if self.public_key is not None and self.private_key is not None:
             try:
-                db = Database("db/blockchaindb.sqlite")
+                session = Session()
                 with open('wallet-{}.txt'.format(self.node_id), mode='w') as f:
                     f.write(self.private_key)
-                db.write("wallet", "public_key", self.public_key)
-                db.close()
+                session.add()
+                session.commit()
+                session.close()
                 return True
             except (IOError, IndexError):
                 print('Saving wallet failed...')
@@ -49,10 +53,10 @@ class Wallet:
 
         # Pass the candidate key for the
         # SQL query and search database for the public_key
-        db = Database("db/blockchaindb.sqlite")
-        public_key = db.get_wallet(query_key)
-        db.close()
+        session = Session()
+        public_key = session.query(wallet).filter(public_key = query_key)
         print(public_key)
+        session.close()
 
         if not public_key:
             return False
