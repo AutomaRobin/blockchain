@@ -225,6 +225,7 @@ class Blockchain:
                         sender,
                         signature,
                         amount=1.0,
+                        time=0,
                         is_receiving=False):
         """ Append a new value as well as the last blockchain value to the blockchain.
 
@@ -242,7 +243,7 @@ class Blockchain:
         # if self.public_key == None:
         #     return False
         session = Session()
-        transaction = Transaction(sender, recipient, signature, amount)
+        transaction = Transaction(sender, recipient, signature, amount, timed=time)
         session.add(transaction)
         if Verification.verify_transaction(transaction, self.get_balance):
             session.commit()

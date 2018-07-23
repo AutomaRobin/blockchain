@@ -5,6 +5,7 @@ import Crypto.Random
 import binascii
 from sqlalchemy import Column, Text, text
 from utility.database import Base, Session
+from time import time
 
 
 class Wallet(Base):
@@ -88,12 +89,13 @@ class Wallet(Base):
             :recipient: The recipient of the transaction.
             :amount: The amount of the transaction.
         """
+        timed = time()
         signer = PKCS1_v1_5.new(RSA.importKey(
             binascii.unhexlify(self.private_key)))
         h = SHA256.new((str(sender) + str(recipient) +
-                        str(amount)).encode('utf8'))
+                        str(amount) + str(timed)).encode('utf8'))
         signature = signer.sign(h)
-        return binascii.hexlify(signature).decode('ascii')
+        return binascii.hexlify(signature).decode('ascii'), timed
 
     @staticmethod
     def verify_transaction(transaction):
@@ -103,10 +105,14 @@ class Wallet(Base):
             :transaction: The transaction that should be verified.
         """
         print("this is the transaction: ", transaction)
-        dict_tx = transaction.__dict__
-        del dict_tx['mined']
-        del dict_tx['block']
-        print(dict_tx['sender'])
+        if isinstance(transaction, object):
+            dict_tx = transaction.__dict__
+            del dict_tx['mined']
+            del dict_tx['block']
+        else:
+            dict_tx = transaction
+            del dict_tx['mined']
+            del dict_tx['block']
 
         public_key = RSA.importKey(binascii.unhexlify(dict_tx['sender']))
         verifier = PKCS1_v1_5.new(public_key)

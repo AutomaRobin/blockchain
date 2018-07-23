@@ -31,13 +31,14 @@ class Transaction(Printable, Base):
     tx_in_block = relationship("Block", back_populates="tx_in_block")
 
     def __init__(self, sender, recipient, signature, amount, mined=-1,
-                 block=None):
+                 block=None, timed=0):
         self.sender = sender
         self.recipient = recipient
         self.amount = amount
         self.signature = signature
         self.mined = mined
         self.block = block
+        self.time = timed
 
     @classmethod
     def to_ordered_dict(cls, transaction):

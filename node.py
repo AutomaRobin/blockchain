@@ -179,9 +179,9 @@ def add_transaction():
         return jsonify(response), 400
     recipient = values['recipient']
     amount = values['amount']
-    signature = wallet.sign_transaction(wallet.public_key, recipient, amount)
+    signature, time = wallet.sign_transaction(wallet.public_key, recipient, amount)
     success = blockchain.add_transaction(
-        recipient, wallet.public_key, signature, amount)
+        recipient, wallet.public_key, signature, amount, time)
     if success:
         response = {
             'message': 'Successfully added transaction.',
