@@ -159,8 +159,6 @@ def broadcast_block():
 
 @app.route('/transaction', methods=['POST'])
 def add_transaction():
-    if not v.check_active_wallet(wallet.public_key):
-        return v.check_active_wallet(wallet.public_key)
 
     if wallet.public_key is None:
         response = {
@@ -214,8 +212,7 @@ def mine():
     block = blockchain.mine_block()
     if block is not None:
         dict_block = block.__dict__.copy()
-        dict_block['transactions'] = [
-            tx.__dict__ for tx in dict_block['transactions']]
+        del dict_block['_sa_instance_state']
         response = {
             'message': 'Block added successfully.',
             'block': dict_block,

@@ -295,7 +295,7 @@
                         .then(function (response) {
                             console.log(vm.privateKey);
                             vm.error = null;
-                            vm.success = 'Created Wallet!\n\n' +
+                            vm.success = 'Loaded Wallet!\n\n' +
                                 'Public Key:\n' + response.data.public_key +
                                 '\n\nPrivate Key:\n' + response.data.private_key;
                             vm.wallet = {

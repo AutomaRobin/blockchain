@@ -3,7 +3,7 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, text
 from utility.database import Base, Session
 
 
@@ -15,9 +15,9 @@ class Wallet(Base):
     public_key = Column(Text, primary_key=True, nullable=False)
     node_id = Column(Text, nullable=False)
 
-    def __init__(self, node_id):
-        self.private_key = None
-        self.public_key = None
+    def __init__(self, node_id, private_key=None, public_key=None):
+        self.private_key = private_key
+        self.public_key = public_key
         self.node_id = node_id
 
     def create_keys(self):
@@ -30,10 +30,11 @@ class Wallet(Base):
         """Saves the keys to a file (wallet.txt)."""
         if self.public_key is not None and self.private_key is not None:
             try:
-                session = Session()
                 with open('wallet-{}.txt'.format(self.node_id), mode='w') as f:
                     f.write(self.private_key)
-                session.add()
+                session = Session()
+                wallet = Wallet(node_id=self.node_id, public_key=self.public_key)
+                session.add(wallet)
                 session.commit()
                 session.close()
                 return True
@@ -54,15 +55,14 @@ class Wallet(Base):
         # Pass the candidate key for the
         # SQL query and search database for the public_key
         session = Session()
-        public_key = session.query(wallet).filter(public_key = query_key)
-        print(public_key)
+        public_key = session.query(Wallet.public_key)\
+            .filter(text('public_key == :query_key')).params(query_key=query_key).one()
         session.close()
-
         if not public_key:
             return False
 
         if public_key:
-            self.public_key = public_key
+            self.public_key = ''.join(public_key)
             self.private_key = private_key
             return True
 
@@ -102,8 +102,14 @@ class Wallet(Base):
         Arguments:
             :transaction: The transaction that should be verified.
         """
-        public_key = RSA.importKey(binascii.unhexlify(transaction.sender))
+        print("this is the transaction: ", transaction)
+        dict_tx = transaction.__dict__
+        del dict_tx['mined']
+        del dict_tx['block']
+        print(dict_tx['sender'])
+
+        public_key = RSA.importKey(binascii.unhexlify(dict_tx['sender']))
         verifier = PKCS1_v1_5.new(public_key)
-        h = SHA256.new((str(transaction.sender) + str(transaction.recipient) +
-                        str(transaction.amount)).encode('utf8'))
-        return verifier.verify(h, binascii.unhexlify(transaction.signature))
+        h = SHA256.new((str(dict_tx['sender']) + str(dict_tx['recipient']) +
+                        str(dict_tx['amount'])).encode('utf8'))
+        return verifier.verify(h, binascii.unhexlify(dict_tx['signature']))

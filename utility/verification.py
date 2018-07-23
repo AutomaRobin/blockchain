@@ -3,6 +3,9 @@
 from utility.hash_util import hash_string_256, hash_block
 from wallet import Wallet
 from flask import jsonify
+from transaction import Transaction
+from utility.database import Session
+
 
 class Verification:
     """A helper class which offer various static and class-based verification
@@ -20,7 +23,9 @@ class Verification:
             :proof: The proof number we're testing.
         """
         # Create a string with all the hash inputs
-        guess = (str([tx.to_ordered_dict() for tx in transactions]
+        session = Session()
+        tx_in_block = session.query(Transaction).filter
+        guess = (str([Transaction.to_ordered_dict(tx) for tx in transactions]
                      ) + str(last_hash) + str(proof)).encode()
         # Hash the string
         # IMPORTANT: This is NOT the same hash as will be stored in the

@@ -1,8 +1,9 @@
 from time import time
-from sqlalchemy import Column, Integer, Text, Float
+from sqlalchemy import Column, Integer, Text, REAL
 from sqlalchemy.orm import relationship
 from utility.printable import Printable
 from utility.database import Base
+from collections import OrderedDict
 
 
 class Block(Printable, Base):
@@ -21,13 +22,21 @@ class Block(Printable, Base):
     previous_hash = Column(Text, nullable=False)
     hash_of_txs = Column(Text, nullable=False)
     proof = Column(Integer, nullable=False)
-    timestamp = Column(Float, nullable=False)
+    timestamp = Column(REAL, nullable=False)
 
     tx_in_block = relationship("Transaction", back_populates="tx_in_block")
 
-    def __init__(self, index, previous_hash, transactions, proof, time=time()):
+    def __init__(self, index, previous_hash, hash_of_txs, proof, time=time()):
         self.index = index
         self.previous_hash = previous_hash
-        self.timestamp = time
-        self.transactions = transactions
+        self.hash_of_txs = hash_of_txs
         self.proof = proof
+        self.timestamp = time
+
+    def block_to_ordered_dict(self):
+        """Converts this block into a (hashable) OrderedDict."""
+        return OrderedDict([('index', self.index),
+                            ('previous_hash', self.previous_hash),
+                            ('hash_of_txs', self.hash_of_txs),
+                            ('proof', self.proof),
+                            ('timestamp', self.timestamp)])
