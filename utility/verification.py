@@ -3,6 +3,9 @@
 from utility.hash_util import hash_string_256, hash_block
 from wallet import Wallet
 from flask import jsonify
+from transaction import Transaction
+from utility.database import Session
+
 
 class Verification:
     """A helper class which offer various static and class-based verification
@@ -20,7 +23,9 @@ class Verification:
             :proof: The proof number we're testing.
         """
         # Create a string with all the hash inputs
-        guess = (str([tx.to_ordered_dict() for tx in transactions]
+        session = Session()
+        tx_in_block = session.query(Transaction).filter
+        guess = (str([Transaction.to_ordered_dict(tx) for tx in transactions]
                      ) + str(last_hash) + str(proof)).encode()
         # Hash the string
         # IMPORTANT: This is NOT the same hash as will be stored in the
@@ -51,15 +56,17 @@ class Verification:
         return True
 
     @staticmethod
-    def verify_transaction(transaction, get_balance, check_funds=True):
+    def verify_transaction(transactions, get_balance, check_funds=True):
         """Verify a transaction by checking whether the sender has sufficient coins.
 
         Arguments:
             :transaction: The transaction that should be verified.
         """
+        transaction = vars(transactions)
+        del transaction['_sa_instance_state']
         if check_funds:
-            sender_balance = get_balance(transaction.sender)
-            return (sender_balance >= transaction.amount and
+            sender_balance = get_balance(transaction['sender'])
+            return (sender_balance >= transaction['amount'] and
                     Wallet.verify_transaction(transaction))
         else:
             return Wallet.verify_transaction(transaction)

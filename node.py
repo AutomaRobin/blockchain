@@ -4,11 +4,8 @@ from flask_cors import CORS
 from wallet import Wallet
 from blockchain import Blockchain
 from utility.verification import Verification
-from utility.database import Database
 
 v = Verification()
-db = Database("db/blockchaindb.sqlite")
-
 app = Flask(__name__)
 CORS(app)
 
@@ -162,8 +159,6 @@ def broadcast_block():
 
 @app.route('/transaction', methods=['POST'])
 def add_transaction():
-    if not v.check_active_wallet(wallet.public_key):
-        return v.check_active_wallet(wallet.public_key)
 
     if wallet.public_key is None:
         response = {
@@ -184,9 +179,9 @@ def add_transaction():
         return jsonify(response), 400
     recipient = values['recipient']
     amount = values['amount']
-    signature = wallet.sign_transaction(wallet.public_key, recipient, amount)
+    signature, time = wallet.sign_transaction(wallet.public_key, recipient, amount)
     success = blockchain.add_transaction(
-        recipient, wallet.public_key, signature, amount)
+        recipient, wallet.public_key, signature, amount, time)
     if success:
         response = {
             'message': 'Successfully added transaction.',
@@ -217,8 +212,7 @@ def mine():
     block = blockchain.mine_block()
     if block is not None:
         dict_block = block.__dict__.copy()
-        dict_block['transactions'] = [
-            tx.__dict__ for tx in dict_block['transactions']]
+        del dict_block['_sa_instance_state']
         response = {
             'message': 'Block added successfully.',
             'block': dict_block,
@@ -319,6 +313,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
     wallet = Wallet(port)
-    Database("db/blockchaindb.sqlite")
     blockchain = Blockchain(wallet.public_key, port)
     app.run(host='0.0.0.0', port=port)
