@@ -104,7 +104,7 @@ class Wallet(Base):
         Arguments:
             :transaction: The transaction that should be verified.
         """
-
+        # delete the columns which are variable
         dict_tx = transaction.copy()
         del dict_tx['mined']
         del dict_tx['block']

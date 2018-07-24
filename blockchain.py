@@ -76,7 +76,7 @@ class Blockchain:
         open_transactions = []
         session = Session()
         for tx in session.query(Transaction) \
-                .filter(Transaction.mined == -1).all():
+                .filter(Transaction.mined == 0).all():
             dict_tx = tx.__dict__
             del dict_tx['_sa_instance_state']
             open_transactions.append(dict_tx)
@@ -119,7 +119,7 @@ class Blockchain:
                 #         tx['amount'])
                 #     updated_transactions.append(updated_transaction)
                 # self.__open_transactions = updated_transactions
-                peer_nodes = json.loads(file_content[2])
+                peer_nodes = json.loads(file_content[0])
                 self.__peer_nodes = set(peer_nodes)
         except (IOError, IndexError):
             pass
@@ -130,10 +130,6 @@ class Blockchain:
         """Save blockchain + open transactions snapshot to a file."""
         try:
             with open('blockchain-{}.txt'.format(self.node_id), mode='w') as f:
-
-                saveable_tx = [tx for tx in self.__open_transactions]
-                f.write(json.dumps(saveable_tx))
-                f.write('\n')
                 f.write(json.dumps(list(self.__peer_nodes)))
                 # save_data = {
                 #     'chain': blockchain,
@@ -303,6 +299,7 @@ class Blockchain:
         copied_transactions.append(reward_transaction)
         print("these are the copied txs: ", copied_transactions)
 
+        # add and modify the objects in the database
         hashed_transactions = Transaction.to_merkle_tree(copied_transactions)
         session = Session()
         block = Block(block_index, hashed_block,
@@ -316,6 +313,7 @@ class Blockchain:
             values(Transaction.mined == 1)
         session.commit()
         session.close()
+
         self.load_data()
 
         for node in self.__peer_nodes:

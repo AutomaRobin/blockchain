@@ -53,10 +53,10 @@ class Transaction(Printable, Base):
         merkle_txs = []
         for tx in list_of_transactions:
             try:
-                print("this is a tx: ", tx)
+                # delete the columns which can change in time
                 del tx['mined']
                 del tx['block']
-            except (AttributeError, TypeError) as e:
+            except (AttributeError, TypeError, KeyError) as e:
                 print("AttributeError while merkling: ", e)
             finally:
                 merkle_txs.append(tx)
