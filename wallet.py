@@ -4,6 +4,7 @@ from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
 from sqlalchemy import Column, Text, text
+from sqlalchemy.orm.exc import NoResultFound
 from utility.database import Base, Session
 from time import time
 
@@ -56,16 +57,17 @@ class Wallet(Base):
         # Pass the candidate key for the
         # SQL query and search database for the public_key
         session = Session()
-        public_key = session.query(Wallet.public_key)\
-            .filter(text('public_key == :query_key')).params(query_key=query_key).one()
-        session.close()
-        if not public_key:
+        try:
+            public_key = session.query(Wallet.public_key)\
+                .filter(text('public_key == :query_key')).params(query_key=query_key)\
+                .one()
+        except NoResultFound:
             return False
+        session.close()
 
-        if public_key:
-            self.public_key = ''.join(public_key)
-            self.private_key = private_key
-            return True
+        self.public_key = ''.join(public_key)
+        self.private_key = private_key
+        return True
 
     @staticmethod
     def generate_keys():
@@ -104,18 +106,13 @@ class Wallet(Base):
         Arguments:
             :transaction: The transaction that should be verified.
         """
-        print("this is the transaction: ", transaction)
-        if isinstance(transaction, object):
-            dict_tx = transaction.__dict__
-            del dict_tx['mined']
-            del dict_tx['block']
-        else:
-            dict_tx = transaction
-            del dict_tx['mined']
-            del dict_tx['block']
+        # delete the columns which are variable
+        dict_tx = transaction.copy()
+        del dict_tx['mined']
+        del dict_tx['block']
 
         public_key = RSA.importKey(binascii.unhexlify(dict_tx['sender']))
         verifier = PKCS1_v1_5.new(public_key)
         h = SHA256.new((str(dict_tx['sender']) + str(dict_tx['recipient']) +
-                        str(dict_tx['amount'])).encode('utf8'))
+                        str(dict_tx['amount']) + str(dict_tx['time'])).encode('utf8'))
         return verifier.verify(h, binascii.unhexlify(dict_tx['signature']))

@@ -243,18 +243,24 @@ def resolve_conflicts():
 @app.route('/transactions', methods=['GET'])
 def get_open_transaction():
     transactions = blockchain.get_open_transactions()
-    dict_transactions = [tx.__dict__ for tx in transactions]
-    return jsonify(dict_transactions), 200
+    return jsonify(transactions), 200
 
 
 @app.route('/chain', methods=['GET'])
 def get_chain():
     chain_snapshot = blockchain.chain
-    dict_chain = [block.__dict__.copy() for block in chain_snapshot]
-    for dict_block in dict_chain:
-        dict_block['transactions'] = [
-            tx.__dict__ for tx in dict_block['transactions']]
-    return jsonify(dict_chain), 200
+    mined_transactions = blockchain.mined_transactions
+    response = {
+        'chain': chain_snapshot,
+        'mined_transactions': mined_transactions
+    }
+    return jsonify(response), 200
+
+
+@app.route('/getnode', methods=['GET'])
+def get_own_node():
+    node_id = blockchain.get_own_node()
+    return jsonify(node_id)
 
 
 @app.route('/node', methods=['POST'])

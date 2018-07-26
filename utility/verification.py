@@ -23,8 +23,6 @@ class Verification:
             :proof: The proof number we're testing.
         """
         # Create a string with all the hash inputs
-        session = Session()
-        tx_in_block = session.query(Transaction).filter
         guess = (str([Transaction.to_ordered_dict(tx) for tx in transactions]
                      ) + str(last_hash) + str(proof)).encode()
         # Hash the string

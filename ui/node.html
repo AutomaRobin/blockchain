@@ -71,6 +71,9 @@
                         </li>
                     </ul>
                 </div>
+                <div class="col">
+                    <p class="float-right">Your node: {{ yourNode }}</p>
+                </div>
             </div>
             <br>
             <div v-if="createdWallet" class="row">
@@ -191,9 +194,11 @@
                                 <div class="card-body">
                                     <p>Previous Hash: {{ data.previous_hash }}</p>
                                     <div class="list-group">
-                                        <div v-for="tx in data.transactions" class="list-group-item flex-column align-items-start">
+                                        <div v-for="tx in minedTransactions" v-if="tx.block == data.index" class="list-group-item flex-column align-items-start">
                                             <div>Sender: {{ tx.sender }}</div>
+                                            <br>
                                             <div>Recipient: {{ tx.recipient }}</div>
+                                            <br>
                                             <div>Amount: {{ tx.amount }}</div>
                                         </div>
                                     </div>
@@ -233,6 +238,8 @@
             data: {
                 blockchain: [],
                 openTransactions: [],
+                minedTransactions: [],
+                yourNode: '',
                 wallet: null,
                 view: 'chain',
                 walletLoading: false,
@@ -262,8 +269,8 @@
             methods: {
                 onCreateWallet: function () {
                     // Send Http request to create a new wallet (and return keys)
-                    var vm = this;
-                    this.walletLoading = true
+                    let vm = this;
+                    this.walletLoading = true;
                     axios.post('/wallet')
                         .then(function (response) {
                             vm.createdWallet = true;
@@ -280,14 +287,14 @@
                         })
                         .catch(function (error) {
                             vm.success = null;
-                            vm.error = error.response.data.message
+                            vm.error = error.response.data.message;
                             vm.wallet = null
                             vm.walletLoading = false
                         });
                 },
                 onLoadWallet: function () {
                     // Send Http request to load an existing wallet (from a file on the server)
-                    var vm = this;
+                    let vm = this;
                     this.walletLoading = true;
                     axios.post('/loadwallet', {
                         private_key: vm.privateKey
@@ -316,7 +323,7 @@
                 onSendTx: function () {
                     // Send Transaction to backend
                     this.txLoading = true;
-                    var vm = this;
+                    let vm = this;
                     axios.post('/transaction', {
                         recipient: this.outgoingTx.recipient,
                         amount: this.outgoingTx.amount
@@ -335,7 +342,7 @@
                     });
                 },
                 onMine: function () {
-                    var vm = this
+                    let vm = this;
                     axios.post('/mine')
                         .then(function(response) {
                             vm.error = null;
@@ -349,7 +356,7 @@
                         });
                 },
                 onResolve: function() {
-                    var vm = this
+                    let vm = this;
                     axios.post('/resolve-conflicts')
                         .then(function(response) {
                             vm.error = null;
@@ -363,32 +370,45 @@
                 onLoadData: function () {
                     if (this.view === 'chain') {
                         // Load blockchain data
-                        var vm = this
-                        this.dataLoading = true
+                        let vm = this;
+                        this.dataLoading = true;
                         axios.get('/chain')
                             .then(function (response) {
-                                vm.blockchain = response.data
+                                vm.blockchain = response.data.chain;
+                                vm.minedTransactions = response.data.mined_transactions;
+                                console.log(vm.blockchain);
+                                console.log(vm.minedTransactions);
                                 vm.dataLoading = false
                             })
                             .catch(function (error) {
-                                vm.dataLoading = false
+                                vm.dataLoading = false;
                                 vm.error = 'Something went wrong.'
                             });
                     } else {
                         // Load transaction data
-                        var vm = this
+                        let vm = this;
                         axios.get('/transactions')
                             .then(function (response) {
-                                vm.openTransactions = response.data
+                                vm.openTransactions = response.data;
                                 vm.dataLoading = false
                             })
                             .catch(function (error) {
-                                vm.dataLoading = false
+                                vm.dataLoading = false;
                                 vm.error = 'Something went wrong.'
                             });
                     }
                 }
-            }
+            },
+            created() {
+                var vm = this;
+                axios.get('/getnode')
+                    .then(function (response) {
+                        vm.yourNode = 'localhost:' + response.data;
+                    })
+                    .catch(function () {
+                        vm.yourNode = 'No node set'
+                    })
+                }
         })
     </script>
 </body>

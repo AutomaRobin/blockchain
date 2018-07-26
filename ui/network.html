@@ -35,6 +35,9 @@
                         </li>
                     </ul>
                 </div>
+                <div class="col">
+                    <p class="float-right">Your node: {{ yourNode }}</p>
+                </div>
             </div>
             <hr>
             <div class="row">
@@ -58,7 +61,7 @@
                 <div class="col">
                     <ul class="list-group">
                         <button v-for="node in nodes" style="cursor: pointer;" class="list-group-item list-group-item-action" @click="onRemoveNode(node)">
-                            {{ node }} (click to delete)
+                            {{ node }} <span v-if="node === yourNode" class="badge badge-info">Your node </span> (click to delete)
                         </button>
                     </ul>
                 </div>
@@ -73,6 +76,7 @@
             el: '#app',
             data: {
                 nodes: [],
+                yourNode: '',
                 newNodeUrl: '',
                 error: null,
                 success: null
@@ -85,7 +89,9 @@
                         .then(function (response) {
                             vm.success = 'Stored node successfully.';
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            for(var i = 0; i < response.data.all_nodes.length; i++) {
+                                vm.nodes.push(response.data.all_nodes[i]);
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;
@@ -99,7 +105,9 @@
                         .then(function (response) {
                             vm.success = 'Fetched nodes successfully.';
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            for(var i = 0; i < response.data.all_nodes.length; i++) {
+                                vm.nodes.push(response.data.all_nodes[i]);
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;
@@ -120,7 +128,18 @@
                             vm.error = error.response.data.message;
                         });
                 }
-            }
+            },
+            created() {
+                var vm = this;
+                axios.get('/getnode')
+                    .then(function (response) {
+                        vm.yourNode = 'localhost:' + response.data;
+                        vm.nodes.push('localhost:' + response.data)
+                    })
+                    .catch(function () {
+                        vm.yourNode = 'No node set'
+                    })
+                }
         })
     </script>
 </body>
