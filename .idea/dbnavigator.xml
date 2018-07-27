@@ -31,7 +31,7 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="520af58e-5d17-4c44-9497-acd6854c6396">
-      <console name="Blockchain DB Connection" type="STANDARD"><![CDATA[delete from blockchain]]></console>
+      <console name="Blockchain DB Connection" type="STANDARD"><![CDATA[select * from transactions;]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">

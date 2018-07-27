@@ -61,7 +61,7 @@
                 <div class="col">
                     <ul class="list-group">
                         <button v-for="node in nodes" style="cursor: pointer;" class="list-group-item list-group-item-action" @click="onRemoveNode(node)">
-                            {{ node }} <span v-if="node === yourNode" class="badge badge-info">Your node </span> (click to delete)
+                            <span v-if="node === yourNode" class="badge badge-info">Your node </span> {{ node }} (click to delete)
                         </button>
                     </ul>
                 </div>
@@ -121,7 +121,9 @@
                         .then(function (response) {
                             vm.success = 'Deleted node successfully.';
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            for (var i = 0; i < response.data.all_nodes.length; i++) {
+                                vm.nodes.push(response.data.all_nodes[i]);
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;

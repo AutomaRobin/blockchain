@@ -1,5 +1,6 @@
 from functools import reduce
-from sqlalchemy import text, update
+from sqlalchemy import text
+from time import time
 import json
 import requests
 
@@ -31,6 +32,8 @@ class Blockchain:
         self.__chain = []
         # Unhandled transactions
         self.__open_transactions = []
+        # handled transactions
+        self.__mined_transactions = []
         self.public_key = public_key
         self.__peer_nodes = set()
         self.node_id = node_id
@@ -48,6 +51,15 @@ class Blockchain:
     def chain(self, val):
         self.__chain = val
 
+    @property
+    def mined_transactions(self):
+        return self.__mined_transactions[:]
+
+    # The setter for the non-open transactions property
+    @mined_transactions.setter
+    def mined_transactions(self, val):
+        self.__mined_transactions = val
+
     def get_open_transactions(self):
         """Returns a copy of the open transactions list."""
         return self.__open_transactions[:]
@@ -60,9 +72,17 @@ class Blockchain:
         for block in session.query(Block).all():
             dict_block = block.__dict__
             del dict_block['_sa_instance_state']
-            blockchain.append(block.__dict__)
+            blockchain.append(dict_block)
+
+        all_mined_transactions = []
+        for row in session.query(Transaction).filter(Transaction.mined == 1).all():
+            dict_tx = row.__dict__
+            del dict_tx['_sa_instance_state']
+            all_mined_transactions.append(dict_tx)
+
         session.close()
         self.chain = blockchain
+        self.mined_transactions = all_mined_transactions
 
         if len(blockchain) == 0:
             # Our starting block for the blockchain
@@ -87,38 +107,6 @@ class Blockchain:
             with open('blockchain-{}.txt'.format(self.node_id), mode='r') as f:
                 # # file_content = pickle.loads(f.read())
                 file_content = f.readlines()
-                # # blockchain = file_content['chain']
-                # # open_transactions = file_content['ot']
-                # blockchain = json.loads(file_content[0][:-1])
-                # # We need to convert  the loaded data because Transactions
-                # # should use OrderedDict
-                # updated_blockchain = []
-                # for block in blockchain:
-                #     converted_tx = [Transaction(
-                #         tx['sender'],
-                #         tx['recipient'],
-                #         tx['signature'],
-                #         tx['amount']) for tx in block['transactions']]
-                #     updated_block = Block(
-                #         block['index'],
-                #         block['previous_hash'],
-                #         converted_tx,
-                #         block['proof'],
-                #         block['timestamp'])
-                #     updated_blockchain.append(updated_block)
-                # self.chain = updated_blockchain
-
-                # # We need to convert  the loaded data because Transactions
-                # # should use OrderedDict
-                # updated_transactions = []
-                # for tx in open_transactions:
-                #     updated_transaction = Transaction(
-                #         tx['sender'],
-                #         tx['recipient'],
-                #         tx['signature'],
-                #         tx['amount'])
-                #     updated_transactions.append(updated_transaction)
-                # self.__open_transactions = updated_transactions
                 peer_nodes = json.loads(file_content[0])
                 self.__peer_nodes = set(peer_nodes)
         except (IOError, IndexError):
@@ -131,11 +119,6 @@ class Blockchain:
         try:
             with open('blockchain-{}.txt'.format(self.node_id), mode='w') as f:
                 f.write(json.dumps(list(self.__peer_nodes)))
-                # save_data = {
-                #     'chain': blockchain,
-                #     'ot': open_transactions
-                # }
-                # f.write(pickle.dumps(save_data))
         except IOError:
             print('Saving failed!')
 
@@ -192,8 +175,8 @@ class Blockchain:
         # block
         session = Session()
         tx_recipient = session.query(Transaction.amount)\
-            .filter(text('recipient == :participant'))\
-            .params(participant=str(participant)).all()
+            .filter(text('recipient == :participant AND mined == :mined'))\
+            .params(participant=str(participant), mined=1).all()
         session.close()
 
         amount_received = reduce(
@@ -231,13 +214,6 @@ class Blockchain:
             :amount: The amount of coins sent with the transaction
             (default = 1.0)
         """
-        # transaction = {
-        #     'sender': sender,
-        #     'recipient': recipient,
-        #     'amount': amount
-        # }
-        # if self.public_key == None:
-        #     return False
         session = Session()
         transaction = Transaction(sender, recipient, signature, amount, timed=time)
         session.add(transaction)
@@ -275,29 +251,21 @@ class Blockchain:
         # value)
         hashed_block = hash_block(last_block)
         proof = self.proof_of_work()
-        # Miners should be rewarded, so let's create a reward transaction
-        # reward_transaction = {
-        #     'sender': 'MINING',
-        #     'recipient': owner,
-        #     'amount': MINING_REWARD
-        # }
         block_index = len(self.__chain)
+        self.load_data()
         reward_transaction = Transaction(
             'MINING', str(self.public_key),
             'REWARD FOR MINING BLOCK {}'.format(block_index),
-            MINING_REWARD, 1, block_index)
+            MINING_REWARD, 1, block_index, time())
         # Copy transaction instead of manipulating the original
         # open_transactions list
         # This ensures that if for some reason the mining should fail,
         # we don't have the reward transaction stored in the open transactions
-        print("these are the open transactions: ", self.__open_transactions)
         copied_transactions = self.__open_transactions[:]
-        print("these are the first copied txs: ", copied_transactions)
         for tx in copied_transactions:
             if not Wallet.verify_transaction(tx):
                 return None
         copied_transactions.append(reward_transaction)
-        print("these are the copied txs: ", copied_transactions)
 
         # add and modify the objects in the database
         hashed_transactions = Transaction.to_merkle_tree(copied_transactions)
@@ -307,28 +275,31 @@ class Blockchain:
         session.add(block)
         session.add(reward_transaction)
         session.commit()
-        update(Transaction).where(Transaction.mined == 0).\
-            values(Transaction.block == block_index)
-        update(Transaction).where(Transaction.mined == 0).\
-            values(Transaction.mined == 1)
+        # Transaction.query.filter_by(mined == 0).update({Transaction.block == block_index})
+        # Transaction.query.filter_by(mined == 0).update({Transaction.mined == 1})
+        open_txs = session.query(Transaction).filter(Transaction.mined == 0).all()
+        for tx in open_txs:
+            tx.block = block_index
+            tx.mined = 1
+
         session.commit()
         session.close()
 
         self.load_data()
 
-        for node in self.__peer_nodes:
-            url = 'http://{}/broadcast-block'.format(node)
-            converted_block = block.__dict__.copy()
-            converted_block['transactions'] = [
-                tx.__dict__ for tx in converted_block['transactions']]
-            try:
-                response = requests.post(url, json={'block': converted_block})
-                if response.status_code == 400 or response.status_code == 500:
-                    print('Block declined, needs resolving')
-                if response.status_code == 409:
-                    self.resolve_conflicts = True
-            except requests.exceptions.ConnectionError:
-                continue
+        # for node in self.__peer_nodes:
+        #     url = 'http://{}/broadcast-block'.format(node)
+        #     converted_block = block.__dict__.copy()
+        #     converted_block['transactions'] = [
+        #         tx.__dict__ for tx in converted_block['transactions']]
+        #     try:
+        #         response = requests.post(url, json={'block': converted_block})
+        #         if response.status_code == 400 or response.status_code == 500:
+        #             print('Block declined, needs resolving')
+        #         if response.status_code == 409:
+        #             self.resolve_conflicts = True
+        #     except requests.exceptions.ConnectionError:
+        #         continue
         return block
 
     def add_block(self, block):
@@ -375,51 +346,51 @@ class Blockchain:
         self.save_data()
         return True
 
-    def resolve(self):
-        """Checks all peer nodes' blockchains and replaces the local one with
-        longer valid ones."""
-        # Initialize the winner chain with the local chain
-        winner_chain = self.chain
-        replace = False
-        for node in self.__peer_nodes:
-            url = 'http://{}/chain'.format(node)
-            try:
-                # Send a request and store the response
-                response = requests.get(url)
-                # Retrieve the JSON data as a dictionary
-                node_chain = response.json()
-                # Convert the dictionary list to a list of block AND
-                # transaction objects
-                node_chain = [
-                    Block(block['index'],
-                          block['previous_hash'],
-                          [
-                        Transaction(
-                            tx['sender'],
-                            tx['recipient'],
-                            tx['signature'],
-                            tx['amount']) for tx in block['transactions']
-                    ],
-                        block['proof'],
-                        block['timestamp']) for block in node_chain
-                ]
-                node_chain_length = len(node_chain)
-                local_chain_length = len(winner_chain)
-                # Store the received chain as the current winner chain if it's
-                # longer AND valid
-                if (node_chain_length > local_chain_length and
-                        Verification.verify_chain(node_chain)):
-                    winner_chain = node_chain
-                    replace = True
-            except requests.exceptions.ConnectionError:
-                continue
-        self.resolve_conflicts = False
-        # Replace the local chain with the winner chain
-        self.chain = winner_chain
-        if replace:
-            self.__open_transactions = []
-        self.save_data()
-        return replace
+    # def resolve(self):
+    #     """Checks all peer nodes' blockchains and replaces the local one with
+    #     longer valid ones."""
+    #     # Initialize the winner chain with the local chain
+    #     winner_chain = self.chain
+    #     replace = False
+    #     for node in self.__peer_nodes:
+    #         url = 'http://{}/chain'.format(node)
+    #         try:
+    #             # Send a request and store the response
+    #             response = requests.get(url)
+    #             # Retrieve the JSON data as a dictionary
+    #             node_chain = response.json()
+    #             # Convert the dictionary list to a list of block AND
+    #             # transaction objects
+    #             node_chain = [
+    #                 Block(block['index'],
+    #                       block['previous_hash'],
+    #                       [
+    #                     Transaction(
+    #                         tx['sender'],
+    #                         tx['recipient'],
+    #                         tx['signature'],
+    #                         tx['amount']) for tx in block['transactions']
+    #                 ],
+    #                     block['proof'],
+    #                     block['timestamp']) for block in node_chain
+    #             ]
+    #             node_chain_length = len(node_chain)
+    #             local_chain_length = len(winner_chain)
+    #             # Store the received chain as the current winner chain if it's
+    #             # longer AND valid
+    #             if (node_chain_length > local_chain_length and
+    #                     Verification.verify_chain(node_chain)):
+    #                 winner_chain = node_chain
+    #                 replace = True
+    #         except requests.exceptions.ConnectionError:
+    #             continue
+    #     self.resolve_conflicts = False
+    #     # Replace the local chain with the winner chain
+    #     self.chain = winner_chain
+    #     if replace:
+    #         self.__open_transactions = []
+    #     self.save_data()
+    #     return replace
 
     def add_peer_node(self, node):
         """Adds a new node to the peer node set.
@@ -442,3 +413,7 @@ class Blockchain:
     def get_peer_nodes(self):
         """Return a list of all connected peer nodes."""
         return list(self.__peer_nodes)
+
+    def get_own_node(self):
+        """Return own node ID"""
+        return self.node_id
