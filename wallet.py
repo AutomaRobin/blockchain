@@ -23,7 +23,7 @@ class Wallet(Base):
     def __init__(self, node_id, private_key=None, public_key=None):
         self.private_key = private_key
         self.public_key = public_key
-        self.node_id = 'localhost:' + str(node_id)
+        self.node_id = node_id
 
     def create_keys(self):
         """Create a new pair of private and public keys."""
@@ -122,4 +122,4 @@ class Wallet(Base):
 
     @classmethod
     def get_node_id(cls):
-        return cls.node_id
+        return 'localhost:' + str(cls.node_id)

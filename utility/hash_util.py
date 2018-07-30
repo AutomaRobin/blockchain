@@ -5,7 +5,6 @@ from block import Block
 
 def hash_string_256(string):
     """Create a SHA256 hash for a given input string.
-
     Arguments:
         :string: The string which should be hashed.
     """
@@ -14,7 +13,6 @@ def hash_string_256(string):
 
 def hash_block(block):
     """Hashes a block and returns a string representation of it.
-
     Arguments:
         :block: The block that should be hashed.
     """

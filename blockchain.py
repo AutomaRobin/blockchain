@@ -279,6 +279,7 @@ class Blockchain:
         copied_transactions.append(reward_transaction)
 
         # add and modify the objects in the database
+        print(copied_transactions)
         hashed_transactions = Transaction.to_merkle_tree(copied_transactions)
         session = Session()
         block = Block(block_index, hashed_block,
@@ -286,8 +287,6 @@ class Blockchain:
         session.add(block)
         session.add(reward_transaction)
         session.commit()
-        # Transaction.query.filter_by(mined == 0).update({Transaction.block == block_index})
-        # Transaction.query.filter_by(mined == 0).update({Transaction.mined == 1})
         open_txs = session.query(Transaction).filter(Transaction.mined == 0).all()
         for tx in open_txs:
             tx.block = block_index
@@ -298,22 +297,21 @@ class Blockchain:
 
         self.load_data()
 
-        # for node in self.__peer_nodes:
-        #     url = 'http://{}/broadcast-block'.format(node)
-        #     converted_block = block.__dict__.copy()
-        #     converted_block['transactions'] = [
-        #         tx.__dict__ for tx in converted_block['transactions']]
-        #     try:
-        #         response = requests.post(url, json={'block': converted_block})
-        #         if response.status_code == 400 or response.status_code == 500:
-        #             print('Block declined, needs resolving')
-        #         if response.status_code == 409:
-        #             self.resolve_conflicts = True
-        #     except requests.exceptions.ConnectionError:
-        #         continue
+        for node in self.__peer_nodes:
+            url = 'http://{}/broadcast-block'.format(node)
+            converted_block = block.__dict__.copy()
+            try:
+                response = requests.post(url, json={'block': converted_block,
+                                                    'transactions': copied_transactions})
+                if response.status_code == 400 or response.status_code == 500:
+                    print('Block declined, needs resolving')
+                if response.status_code == 409:
+                    self.resolve_conflicts = True
+            except requests.exceptions.ConnectionError:
+                continue
         return block
 
-    def add_block(self, block):
+    def add_block(self, block, list_of_transactions):
         """Add a block which was received via broadcasting to the local
         blockchain."""
         # Create a list of transaction objects
@@ -321,7 +319,8 @@ class Blockchain:
             tx['sender'],
             tx['recipient'],
             tx['signature'],
-            tx['amount']) for tx in block['transactions']]
+            tx['amount'],
+        ) for tx in list_of_transactions]
         # Validate the proof of work of the block and store the result (True
         # or False) in a variable
         proof_is_valid = Verification.valid_proof(
@@ -339,22 +338,21 @@ class Blockchain:
             block['proof'],
             block['timestamp'])
         self.__chain.append(converted_block)
-        stored_transactions = self.__open_transactions[:]
+        # stored_transactions = self.__open_transactions[:]
         # Check which open transactions were included in the received block
         # and remove them
         # This could be improved by giving each transaction an ID that would
         # uniquely identify it
-        for itx in block['transactions']:
-            for opentx in stored_transactions:
-                if (opentx.sender == itx['sender'] and
-                        opentx.recipient == itx['recipient'] and
-                        opentx.amount == itx['amount'] and
-                        opentx.signature == itx['signature']):
-                    try:
-                        self.__open_transactions.remove(opentx)
-                    except ValueError:
-                        print('Item was already removed')
-        self.save_data()
+        # for itx in block['transactions']:
+        #     for opentx in stored_transactions:
+        #         if (opentx.sender == itx['sender'] and
+        #                 opentx.recipient == itx['recipient'] and
+        #                 opentx.amount == itx['amount'] and
+        #                 opentx.signature == itx['signature']):
+        #             try:
+        #                 self.__open_transactions.remove(opentx)
+        #             except ValueError:
+        #                 print('Item was already removed')
         return True
 
     # def resolve(self):
@@ -444,5 +442,5 @@ class Blockchain:
 
     def get_own_node(self):
         """Return own node ID"""
-        self.add_peer_node(f"localhost:{self.node_id}")
+        # self.add_peer_node(f"localhost:{self.node_id}")
         return self.node_id

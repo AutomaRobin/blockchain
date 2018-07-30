@@ -135,12 +135,13 @@ def broadcast_block():
     if not values:
         response = {'message': 'No data found.'}
         return jsonify(response), 400
-    if 'block' not in values:
+    if 'block' not in values and 'transactions' not in values:
         response = {'message': 'Some data is missing.'}
         return jsonify(response), 400
     block = values['block']
+    transactions = values['transactions']
     if block['index'] == blockchain.chain[-1].index + 1:
-        if blockchain.add_block(block):
+        if blockchain.add_block(block, transactions):
             response = {'message': 'Block added'}
             return jsonify(response), 201
         else:

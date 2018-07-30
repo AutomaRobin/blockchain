@@ -14,7 +14,6 @@ class Verification:
     def valid_proof(transactions, last_hash, proof):
         """Validate a proof of work number and see if it solves the puzzle
         algorithm (two leading 0s)
-
         Arguments:
             :transactions: The transactions of the block for which the proof
             is created.
@@ -56,7 +55,6 @@ class Verification:
     @staticmethod
     def verify_transaction(transactions, get_balance, check_funds=True):
         """Verify a transaction by checking whether the sender has sufficient coins.
-
         Arguments:
             :transaction: The transaction that should be verified.
         """

@@ -9,7 +9,6 @@ from time import time
 
 class Transaction(Printable, Base):
     """A transaction which can be added to a block in the blockchain.
-
     Attributes:
         :sender: The sender of the coins.
         :recipient: The recipient of the coins.

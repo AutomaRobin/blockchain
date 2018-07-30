@@ -8,7 +8,6 @@ from collections import OrderedDict
 
 class Block(Printable, Base):
     """A single block of our blockchain.
-
     Attributes:
         :index: The index of this block.
         :previous_hash: The hash of the previous block in the blockchain.
