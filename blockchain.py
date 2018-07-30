@@ -1,5 +1,7 @@
 from functools import reduce
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from time import time
 import json
 import requests
@@ -10,6 +12,7 @@ from transaction import Transaction
 from wallet import Wallet
 from utility.database import Session
 from block import Block
+from peer_nodes import Node
 
 # The reward we give to miners (for creating a new block)
 MINING_REWARD = 10
@@ -35,7 +38,7 @@ class Blockchain:
         # handled transactions
         self.__mined_transactions = []
         self.public_key = public_key
-        self.__peer_nodes = set()
+        self.__peer_nodes = []
         self.node_id = node_id
         self.resolve_conflicts = False
         self.load_data()
@@ -70,13 +73,13 @@ class Blockchain:
         session = Session()
         blockchain = []
         for block in session.query(Block).all():
-            dict_block = block.__dict__
+            dict_block = block.__dict__.copy()
             del dict_block['_sa_instance_state']
             blockchain.append(dict_block)
 
         all_mined_transactions = []
         for row in session.query(Transaction).filter(Transaction.mined == 1).all():
-            dict_tx = row.__dict__
+            dict_tx = row.__dict__.copy()
             del dict_tx['_sa_instance_state']
             all_mined_transactions.append(dict_tx)
 
@@ -97,22 +100,30 @@ class Blockchain:
         session = Session()
         for tx in session.query(Transaction) \
                 .filter(Transaction.mined == 0).all():
-            dict_tx = tx.__dict__
+            dict_tx = tx.__dict__.copy()
             del dict_tx['_sa_instance_state']
             open_transactions.append(dict_tx)
         self.__open_transactions = open_transactions
         session.close()
 
-        try:
-            with open('blockchain-{}.txt'.format(self.node_id), mode='r') as f:
-                # # file_content = pickle.loads(f.read())
-                file_content = f.readlines()
-                peer_nodes = json.loads(file_content[0])
-                self.__peer_nodes = set(peer_nodes)
-        except (IOError, IndexError):
-            pass
-        finally:
-            print('Cleanup!')
+        peer_nodes = []
+        session = Session()
+        for node in session.query(Node).all():
+            dict_node = node.__dict__.copy()
+            del dict_node['_sa_instance_state']
+            peer_nodes.append(dict_node)
+        self.__peer_nodes = peer_nodes
+        session.close()
+        # try:
+        #     with open('blockchain-{}.txt'.format(self.node_id), mode='r') as f:
+        #         # # file_content = pickle.loads(f.read())
+        #         file_content = f.readlines()
+        #         peer_nodes = json.loads(file_content[0])
+        #         self.__peer_nodes = set(peer_nodes)
+        # except (IOError, IndexError):
+        #     pass
+        # finally:
+        #     print('Cleanup!')
 
     def save_data(self):
         """Save blockchain + open transactions snapshot to a file."""
@@ -398,8 +409,16 @@ class Blockchain:
         Arguments:
             :node: The node URL which should be added.
         """
-        self.__peer_nodes.add(node)
-        self.save_data()
+        session = Session()
+        new_peer_node = Node(node)
+        session.add(new_peer_node)
+        try:
+            session.commit()
+        except IntegrityError:
+            return False
+        session.close()
+        self.load_data()
+        return True
 
     def remove_peer_node(self, node):
         """Removes a node from the peer node set.
@@ -407,8 +426,17 @@ class Blockchain:
         Arguments:
             :node: The node URL which should be removed.
         """
-        self.__peer_nodes.discard(node)
-        self.save_data()
+        session = Session()
+        obj = session.query(Node).filter(text("id == :node_id"))\
+            .params(node_id=node).one()
+        session.delete(obj)
+        try:
+            session.commit()
+        except NoResultFound:
+            return False
+        session.close()
+        self.load_data()
+        return True
 
     def get_peer_nodes(self):
         """Return a list of all connected peer nodes."""
@@ -416,4 +444,5 @@ class Blockchain:
 
     def get_own_node(self):
         """Return own node ID"""
+        self.add_peer_node(f"localhost:{self.node_id}")
         return self.node_id

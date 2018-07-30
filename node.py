@@ -5,10 +5,10 @@ from wallet import Wallet
 from blockchain import Blockchain
 from utility.verification import Verification
 
+
 v = Verification()
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route('/', methods=['GET'])
 def get_node_ui():
@@ -277,7 +277,13 @@ def add_node():
         }
         return jsonify(response), 400
     node = values['node']
-    blockchain.add_peer_node(node)
+    added = blockchain.add_peer_node(node)
+    if not added:
+        response = {
+            'message': 'Node already present.',
+            'all_nodes': blockchain.get_peer_nodes()
+        }
+        return jsonify(response), 202
     response = {
         'message': 'Node added successfully.',
         'all_nodes': blockchain.get_peer_nodes()
@@ -295,10 +301,14 @@ def remove_node(node_url):
             'message': 'No node found.'
         }
         return jsonify(response), 400
-    blockchain.remove_peer_node(node_url)
+    removed = blockchain.remove_peer_node(node_url)
+    if not removed:
+        response = {
+            'message': 'Node not found'
+        }
+        return jsonify(response), 304
     response = {
-        'message': 'Node removed',
-        'all_nodes': blockchain.get_peer_nodes()
+        'message': 'Node removed'
     }
     return jsonify(response), 200
 

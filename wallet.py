@@ -3,8 +3,9 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
-from sqlalchemy import Column, Text, text
+from sqlalchemy import Column, Text, text, ForeignKey
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm import relationship
 from utility.database import Base, Session
 from time import time
 
@@ -15,12 +16,14 @@ class Wallet(Base):
 
     __tablename__ = 'wallet'
     public_key = Column(Text, primary_key=True, nullable=False)
-    node_id = Column(Text, nullable=False)
+    node_id = Column(Text, ForeignKey('peer_nodes.id'), nullable=False)
+
+    peer_node_id = relationship("Node", back_populates="wallet_id")
 
     def __init__(self, node_id, private_key=None, public_key=None):
         self.private_key = private_key
         self.public_key = public_key
-        self.node_id = node_id
+        self.node_id = 'localhost:' + str(node_id)
 
     def create_keys(self):
         """Create a new pair of private and public keys."""
@@ -116,3 +119,7 @@ class Wallet(Base):
         h = SHA256.new((str(dict_tx['sender']) + str(dict_tx['recipient']) +
                         str(dict_tx['amount']) + str(dict_tx['time'])).encode('utf8'))
         return verifier.verify(h, binascii.unhexlify(dict_tx['signature']))
+
+    @classmethod
+    def get_node_id(cls):
+        return cls.node_id
