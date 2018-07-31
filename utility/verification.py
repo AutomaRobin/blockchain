@@ -4,7 +4,6 @@ from utility.hash_util import hash_string_256, hash_block
 from wallet import Wallet
 from flask import jsonify
 from transaction import Transaction
-from utility.database import Session
 
 
 class Verification:
@@ -45,7 +44,7 @@ class Verification:
                 continue
             if block.previous_hash != hash_block(blockchain[index - 1]):
                 return False
-            if not cls.valid_proof(block.transactions[:-1],
+            if not cls.valid_proof(block.hash_of_txs,
                                    block.previous_hash,
                                    block.proof):
                 print('Proof of work is invalid')

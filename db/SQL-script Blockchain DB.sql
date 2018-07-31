@@ -47,5 +47,5 @@ CREATE TABLE `peer_nodes` (
     PRIMARY KEY (
         `id`
     ),
-    FOREIGN KEY (`id`) REFERENCES wallet(node_id)
+    FOREIGN KEY (`id`) REFERENCES wallet(`node_id`)
 );

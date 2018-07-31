@@ -11,11 +11,16 @@ def hash_string_256(string):
     return hl.sha256(string).hexdigest()
 
 
-def hash_block(block):
+def hash_block(blocked):
     """Hashes a block and returns a string representation of it.
     Arguments:
         :block: The block that should be hashed.
     """
+    try:
+        block = vars(blocked)
+    except TypeError:
+        block = blocked
+
     index = block['index']
     previous_hash = block['previous_hash']
     hash_of_txs = block['hash_of_txs']

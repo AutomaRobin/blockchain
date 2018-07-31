@@ -125,14 +125,6 @@ class Blockchain:
         # finally:
         #     print('Cleanup!')
 
-    def save_data(self):
-        """Save blockchain + open transactions snapshot to a file."""
-        try:
-            with open('blockchain-{}.txt'.format(self.node_id), mode='w') as f:
-                f.write(json.dumps(list(self.__peer_nodes)))
-        except IOError:
-            print('Saving failed!')
-
     def proof_of_work(self):
         """Generate a proof of work for the open transactions, the hash of the
         previous block and a random number (which is guessed until it fits)."""
@@ -166,17 +158,10 @@ class Blockchain:
             .params(participant=str(participant)).all()
         session.close()
 
-        # [[tx.amount for tx in block.transactions
-        #         if tx.sender == participant] for block in self.__chain]
         # Fetch a list of all sent coin amounts for the given person (empty
         # lists are returned if the person was NOT the sender)
         # This fetches sent amounts of open transactions (to avoid double
         # spending)
-        # open_tx_sender = [
-        #     tx.amount for tx in self.__open_transactions
-        #     if tx.sender == participant
-        # ]
-        # tx_sender.append(open_tx_sender)
         amount_sent = reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt)
         if len(tx_amt) > 0 else tx_sum + 0, tx_sender, 0)
         # This fetches received coin amounts of transactions that were already
@@ -232,16 +217,18 @@ class Blockchain:
             session.commit()
             session.close()
             self.load_data()
+
             if not is_receiving:
                 for node in self.__peer_nodes:
-                    url = 'http://{}/broadcast-transaction'.format(node)
+                    url = 'http://{}/broadcast-transaction'.format(node['id'])
                     try:
                         response = requests.post(url,
                                                  json={
                                                      'sender': sender,
                                                      'recipient': recipient,
                                                      'amount': amount,
-                                                     'signature': signature
+                                                     'signature': signature,
+                                                     'time': time
                                                  })
                         if (response.status_code == 400 or
                                 response.status_code == 500):
@@ -276,10 +263,10 @@ class Blockchain:
         for tx in copied_transactions:
             if not Wallet.verify_transaction(tx):
                 return None
+
         copied_transactions.append(reward_transaction)
 
         # add and modify the objects in the database
-        print(copied_transactions)
         hashed_transactions = Transaction.to_merkle_tree(copied_transactions)
         session = Session()
         block = Block(block_index, hashed_block,
@@ -288,6 +275,7 @@ class Blockchain:
         session.add(reward_transaction)
         session.commit()
         open_txs = session.query(Transaction).filter(Transaction.mined == 0).all()
+
         for tx in open_txs:
             tx.block = block_index
             tx.mined = 1
@@ -297,12 +285,27 @@ class Blockchain:
 
         self.load_data()
 
+        session = Session()
+        converted_block = session.query(Block)\
+            .filter(Block.index == block_index).one()
+        mined_transactions = session.query(Transaction).\
+            filter(Transaction.block == block_index).all()
+        session.close()
+
+        sendable_tx = []
+        for tx in mined_transactions:
+            dict_tx = tx.__dict__.copy()
+            del dict_tx['_sa_instance_state']
+            sendable_tx.append(dict_tx)
+
+        dict_block = converted_block.__dict__.copy()
+        del dict_block['_sa_instance_state']
+
         for node in self.__peer_nodes:
-            url = 'http://{}/broadcast-block'.format(node)
-            converted_block = block.__dict__.copy()
+            url = 'http://{}/broadcast-block'.format(node['id'])
             try:
-                response = requests.post(url, json={'block': converted_block,
-                                                    'transactions': copied_transactions})
+                response = requests.post(url, json={'block': dict_block,
+                                                    'transactions': sendable_tx})
                 if response.status_code == 400 or response.status_code == 500:
                     print('Block declined, needs resolving')
                 if response.status_code == 409:
@@ -315,44 +318,62 @@ class Blockchain:
         """Add a block which was received via broadcasting to the local
         blockchain."""
         # Create a list of transaction objects
-        transactions = [Transaction(
-            tx['sender'],
-            tx['recipient'],
-            tx['signature'],
-            tx['amount'],
-        ) for tx in list_of_transactions]
+        print("add_block list of tx: ", list_of_transactions)
+        print("add_block block: ", block)
+        print("add_block copy tx: ", list_of_transactions)
         # Validate the proof of work of the block and store the result (True
         # or False) in a variable
         proof_is_valid = Verification.valid_proof(
-            transactions[:-1], block['previous_hash'], block['proof'])
+            list_of_transactions[:-1], block['previous_hash'], block['proof'])
         # Check if previous_hash stored in the block is equal to the local
         # blockchain's last block's hash and store the result in a block
-        hashes_match = hash_block(self.chain[-1]) == block['previous_hash']
+        last_block = self.__chain[-1]
+        hashes_match = hash_block(last_block) == block['previous_hash']
         if not proof_is_valid or not hashes_match:
             return False
         # Create a Block object
+        session = Session()
         converted_block = Block(
             block['index'],
             block['previous_hash'],
-            transactions,
+            block['hash_of_txs'],
             block['proof'],
             block['timestamp'])
-        self.__chain.append(converted_block)
-        # stored_transactions = self.__open_transactions[:]
+        session.add(converted_block)
+        reward_tx = Transaction(
+            list_of_transactions[-1]['sender'],
+            list_of_transactions[-1]['recipient'],
+            list_of_transactions[-1]['signature'],
+            list_of_transactions[-1]['amount'],
+            1, block['index'],
+            list_of_transactions[-1]['time'])
+        session.add(reward_tx)
+        session.commit()
+        session.close()
+        self.load_data()
         # Check which open transactions were included in the received block
         # and remove them
         # This could be improved by giving each transaction an ID that would
         # uniquely identify it
-        # for itx in block['transactions']:
-        #     for opentx in stored_transactions:
-        #         if (opentx.sender == itx['sender'] and
-        #                 opentx.recipient == itx['recipient'] and
-        #                 opentx.amount == itx['amount'] and
-        #                 opentx.signature == itx['signature']):
-        #             try:
-        #                 self.__open_transactions.remove(opentx)
-        #             except ValueError:
-        #                 print('Item was already removed')
+        mined_transactions = []
+        session = Session()
+        for itx in list_of_transactions[:-1]:
+            try:
+                for opentx in session.query(Transaction).filter(text("signature = :sign"))\
+                        .params(sign=itx['signature']).one():
+                            mined_transactions.append(opentx)
+            except NoResultFound:
+                continue
+        print("add_block mined tx: ", mined_transactions)
+
+        for tx in mined_transactions:
+            tx.block = block['index']
+            tx.mined = 1
+
+        session.commit()
+        session.close()
+
+        self.load_data()
         return True
 
     # def resolve(self):

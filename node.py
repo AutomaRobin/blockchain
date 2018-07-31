@@ -107,6 +107,7 @@ def broadcast_transaction():
         values['sender'],
         values['signature'],
         values['amount'],
+        values['time'],
         is_receiving=True)
     if success:
         response = {
@@ -140,14 +141,14 @@ def broadcast_block():
         return jsonify(response), 400
     block = values['block']
     transactions = values['transactions']
-    if block['index'] == blockchain.chain[-1].index + 1:
+    if block['index'] == len(blockchain.chain):
         if blockchain.add_block(block, transactions):
             response = {'message': 'Block added'}
             return jsonify(response), 201
         else:
             response = {'message': 'Block seems invalid.'}
             return jsonify(response), 409
-    elif block['index'] > blockchain.chain[-1].index:
+    elif block['index'] > len(blockchain.chain):
         response = {
             'message': 'Blockchain seems to differ from local blockchain.'}
         blockchain.resolve_conflicts = True
