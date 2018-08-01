@@ -190,6 +190,14 @@ class Blockchain:
             return None
         return self.__chain[-1]
 
+    @staticmethod
+    def get_all_transactions():
+        """Returns all transactions of the local blockchain"""
+        session = Session()
+        all_transactions = session.query(Transaction).all()
+        session.close()
+        return all_transactions[:]
+
     # This function accepts two arguments.
     # One required one (transaction_amount) and one optional one
     # (last_transaction)
@@ -357,7 +365,8 @@ class Blockchain:
         self.load_data()
 
         # Check which open transactions were included in the received block
-        # and update the mined and block columns
+        # and update the mined and block columns (except for the last transaction
+        # in the list, that is the mining reward)
         mined_transactions = []
         session = Session()
         for itx in list_of_transactions[:-1]:
@@ -383,6 +392,9 @@ class Blockchain:
         longer valid ones."""
         # Initialize the winner chain with the local chain
         winner_chain = self.chain
+        winning_node = self.node_id
+        mined_txs = []
+        open_txs = []
         replace = False
         for node in self.__peer_nodes:
             url = 'http://{}/chain'.format(node['id'])
@@ -391,19 +403,15 @@ class Blockchain:
                 response = requests.get(url)
                 # Retrieve the JSON data as a dictionary
                 peer_node_data = response.json()
-                node_chain = peer_node_data['chain']
+                node_chain = peer_node_data
                 # Convert the dictionary list to a list of block AND
                 # transaction objects
+
                 node_chain = [
-                    Block(block['index'],
-                          block['previous_hash'],
-                          [
-                        Transaction(
-                            tx['sender'],
-                            tx['recipient'],
-                            tx['signature'],
-                            tx['amount']) for tx in block['transactions']
-                    ],
+                    Block(
+                        block['index'],
+                        block['previous_hash'],
+                        block['hash_of_txs'],
                         block['proof'],
                         block['timestamp']) for block in node_chain
                 ]
@@ -414,14 +422,43 @@ class Blockchain:
                 if (node_chain_length > local_chain_length and
                         Verification.verify_chain(node_chain)):
                     winner_chain = node_chain
+                    winning_node = node['id']
                     replace = True
             except requests.exceptions.ConnectionError:
                 continue
         self.resolve_conflicts = False
         # Replace the local chain with the winner chain
-        self.chain = winner_chain
-        if replace:
-            self.__open_transactions = []
+        if self.chain is not winner_chain and replace:
+            # get transactions from winning chain to replace the local ones
+            url = 'http://{}/gettransactions'.format(winning_node)
+            response = requests.get(url)
+            transactions = response.json()
+
+            session = Session()
+            local_transactions = session.query(Transaction).all()
+            local_blockchain = session.query(Blockchain).all()
+            session.delete(local_transactions)
+            session.delete(local_blockchain)
+            try:
+                session.commit()
+            except NoResultFound as e:
+                print(e)
+
+            new_transactions = [
+                Transaction(
+                    tx['sender'],
+                    tx['recipient'],
+                    tx['signature'],
+                    tx['amount'],
+                    tx['mined'],
+                    tx['block'],
+                    tx['time']) for tx in transactions
+            ]
+
+            session.add_all(new_transactions)
+            session.add_all(winner_chain)
+            session.commit()
+
         self.load_data()
         return replace
 

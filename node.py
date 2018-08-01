@@ -251,15 +251,20 @@ def get_open_transaction():
 @app.route('/chain', methods=['GET'])
 def get_chain():
     chain_snapshot = blockchain.chain
-    mined_transactions = blockchain.mined_transactions
-    open_transactions = blockchain.get_open_transactions()
     response = {
-        'chain': chain_snapshot,
-        'mined_transactions': mined_transactions,
-        'open_transactions': open_transactions
+        'chain': chain_snapshot
     }
     return jsonify(response), 200
 
+
+@app.route('/gettransactions', methods=['GET'])
+def get_winning_chain_transactions():
+    transactions = blockchain.get_all_transactions
+
+    response = {
+        'transactions': transactions
+    }
+    return jsonify(response), 200
 
 @app.route('/getnode', methods=['GET'])
 def get_own_node():
