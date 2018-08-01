@@ -317,20 +317,19 @@ class Blockchain:
     def add_block(self, block, list_of_transactions):
         """Add a block which was received via broadcasting to the local
         blockchain."""
-        # Create a list of transaction objects
-        print("add_block list of tx: ", list_of_transactions)
-        print("add_block block: ", block)
-        print("add_block copy tx: ", list_of_transactions)
+
         # Validate the proof of work of the block and store the result (True
         # or False) in a variable
         proof_is_valid = Verification.valid_proof(
             list_of_transactions[:-1], block['previous_hash'], block['proof'])
+
         # Check if previous_hash stored in the block is equal to the local
         # blockchain's last block's hash and store the result in a block
         last_block = self.__chain[-1]
         hashes_match = hash_block(last_block) == block['previous_hash']
         if not proof_is_valid or not hashes_match:
             return False
+
         # Create a Block object
         session = Session()
         converted_block = Block(
@@ -340,21 +339,25 @@ class Blockchain:
             block['proof'],
             block['timestamp'])
         session.add(converted_block)
+
+        # create a Transaction object of the given mining reward transactions
+        # since this Transaction is not broadcasted
+        reward_transaction = list_of_transactions[-1]
         reward_tx = Transaction(
-            list_of_transactions[-1]['sender'],
-            list_of_transactions[-1]['recipient'],
-            list_of_transactions[-1]['signature'],
-            list_of_transactions[-1]['amount'],
+            reward_transaction['sender'],
+            reward_transaction['recipient'],
+            reward_transaction['signature'],
+            reward_transaction['amount'],
             1, block['index'],
-            list_of_transactions[-1]['time'])
+            reward_transaction['time'])
         session.add(reward_tx)
+
         session.commit()
         session.close()
         self.load_data()
+
         # Check which open transactions were included in the received block
-        # and remove them
-        # This could be improved by giving each transaction an ID that would
-        # uniquely identify it
+        # and update the mined and block columns
         mined_transactions = []
         session = Session()
         for itx in list_of_transactions[:-1]:
@@ -364,7 +367,6 @@ class Blockchain:
                             mined_transactions.append(opentx)
             except NoResultFound:
                 continue
-        print("add_block mined tx: ", mined_transactions)
 
         for tx in mined_transactions:
             tx.block = block['index']
@@ -376,51 +378,52 @@ class Blockchain:
         self.load_data()
         return True
 
-    # def resolve(self):
-    #     """Checks all peer nodes' blockchains and replaces the local one with
-    #     longer valid ones."""
-    #     # Initialize the winner chain with the local chain
-    #     winner_chain = self.chain
-    #     replace = False
-    #     for node in self.__peer_nodes:
-    #         url = 'http://{}/chain'.format(node)
-    #         try:
-    #             # Send a request and store the response
-    #             response = requests.get(url)
-    #             # Retrieve the JSON data as a dictionary
-    #             node_chain = response.json()
-    #             # Convert the dictionary list to a list of block AND
-    #             # transaction objects
-    #             node_chain = [
-    #                 Block(block['index'],
-    #                       block['previous_hash'],
-    #                       [
-    #                     Transaction(
-    #                         tx['sender'],
-    #                         tx['recipient'],
-    #                         tx['signature'],
-    #                         tx['amount']) for tx in block['transactions']
-    #                 ],
-    #                     block['proof'],
-    #                     block['timestamp']) for block in node_chain
-    #             ]
-    #             node_chain_length = len(node_chain)
-    #             local_chain_length = len(winner_chain)
-    #             # Store the received chain as the current winner chain if it's
-    #             # longer AND valid
-    #             if (node_chain_length > local_chain_length and
-    #                     Verification.verify_chain(node_chain)):
-    #                 winner_chain = node_chain
-    #                 replace = True
-    #         except requests.exceptions.ConnectionError:
-    #             continue
-    #     self.resolve_conflicts = False
-    #     # Replace the local chain with the winner chain
-    #     self.chain = winner_chain
-    #     if replace:
-    #         self.__open_transactions = []
-    #     self.save_data()
-    #     return replace
+    def resolve(self):
+        """Checks all peer nodes' blockchains and replaces the local one with
+        longer valid ones."""
+        # Initialize the winner chain with the local chain
+        winner_chain = self.chain
+        replace = False
+        for node in self.__peer_nodes:
+            url = 'http://{}/chain'.format(node['id'])
+            try:
+                # Send a request and store the response
+                response = requests.get(url)
+                # Retrieve the JSON data as a dictionary
+                peer_node_data = response.json()
+                node_chain = peer_node_data['chain']
+                # Convert the dictionary list to a list of block AND
+                # transaction objects
+                node_chain = [
+                    Block(block['index'],
+                          block['previous_hash'],
+                          [
+                        Transaction(
+                            tx['sender'],
+                            tx['recipient'],
+                            tx['signature'],
+                            tx['amount']) for tx in block['transactions']
+                    ],
+                        block['proof'],
+                        block['timestamp']) for block in node_chain
+                ]
+                node_chain_length = len(node_chain)
+                local_chain_length = len(winner_chain)
+                # Store the received chain as the current winner chain if it's
+                # longer AND valid
+                if (node_chain_length > local_chain_length and
+                        Verification.verify_chain(node_chain)):
+                    winner_chain = node_chain
+                    replace = True
+            except requests.exceptions.ConnectionError:
+                continue
+        self.resolve_conflicts = False
+        # Replace the local chain with the winner chain
+        self.chain = winner_chain
+        if replace:
+            self.__open_transactions = []
+        self.load_data()
+        return replace
 
     def add_peer_node(self, node):
         """Adds a new node to the peer node set.

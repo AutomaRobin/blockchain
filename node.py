@@ -252,9 +252,11 @@ def get_open_transaction():
 def get_chain():
     chain_snapshot = blockchain.chain
     mined_transactions = blockchain.mined_transactions
+    open_transactions = blockchain.get_open_transactions()
     response = {
         'chain': chain_snapshot,
-        'mined_transactions': mined_transactions
+        'mined_transactions': mined_transactions,
+        'open_transactions': open_transactions
     }
     return jsonify(response), 200
 
