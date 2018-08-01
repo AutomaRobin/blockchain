@@ -3,26 +3,24 @@
 from utility.hash_util import hash_string_256, hash_block
 from wallet import Wallet
 from flask import jsonify
-from transaction import Transaction
 
 
 class Verification:
     """A helper class which offer various static and class-based verification
     and validation methods."""
     @staticmethod
-    def valid_proof(transactions, last_hash, proof):
+    def valid_proof(hash_of_txs, last_hash, proof):
         """Validate a proof of work number and see if it solves the puzzle
         algorithm (two leading 0s)
         Arguments:
-            :transactions: The transactions of the block for which the proof
-            is created.
+            :hash_of_txs: The Merkleroot hash of the transactions
+            of the block for which the proof is created.
             :last_hash: The previous block's hash which will be stored in the
             current block.
             :proof: The proof number we're testing.
         """
         # Create a string with all the hash inputs
-        guess = (str([Transaction.to_ordered_dict(tx) for tx in transactions]
-                     ) + str(last_hash) + str(proof)).encode()
+        guess = (str(hash_of_txs) + str(last_hash) + str(proof)).encode()
         # Hash the string
         # IMPORTANT: This is NOT the same hash as will be stored in the
         # previous_hash. It's a not a block's hash. It's only used for the

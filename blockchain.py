@@ -112,7 +112,7 @@ class Blockchain:
         # finally:
         #     print('Cleanup!')
 
-    def proof_of_work(self):
+    def proof_of_work(self, merkle_hash):
         """Generate a proof of work for the open transactions, the hash of the
         previous block and a random number (which is guessed until it fits)."""
         last_block = self.__chain[-1]
@@ -120,9 +120,7 @@ class Blockchain:
         proof = 0
         # Try different PoW numbers and return the first valid one
         while not Verification.valid_proof(
-            self.__open_transactions,
-            last_hash, proof
-        ):
+                merkle_hash, last_hash, proof):
             proof += 1
         return proof
 
@@ -243,8 +241,6 @@ class Blockchain:
         last_block = self.__chain[-1]
         # Hash the last block (=> to be able to compare it to the stored hash
         # value)
-        hashed_block = hash_block(last_block)
-        proof = self.proof_of_work()
         block_index = len(self.__chain)
         self.load_data()
         reward_transaction = Transaction(
@@ -264,6 +260,8 @@ class Blockchain:
 
         # add and modify the objects in the database
         hashed_transactions = Transaction.to_merkle_tree(copied_transactions)
+        hashed_block = hash_block(last_block)
+        proof = self.proof_of_work(hashed_transactions)
         session = Session()
         block = Block(block_index, hashed_block,
                       hashed_transactions, proof)
@@ -313,7 +311,7 @@ class Blockchain:
         # Validate the proof of work of the block and store the result (True
         # or False) in a variable
         proof_is_valid = Verification.valid_proof(
-            list_of_transactions[:-1], block['previous_hash'], block['proof'])
+            block['hash_of_txs'], block['previous_hash'], block['proof'])
 
         # Check if previous_hash stored in the block is equal to the local
         # blockchain's last block's hash and store the result in a block
@@ -356,7 +354,7 @@ class Blockchain:
         for itx in list_of_transactions[:-1]:
             try:
                 for opentx in session.query(Transaction).filter(text("signature = :sign"))\
-                        .params(sign=itx['signature']).one():
+                        .params(sign=itx['signature']).all():
                             mined_transactions.append(opentx)
             except NoResultFound:
                 continue
@@ -385,7 +383,7 @@ class Blockchain:
                 response = requests.get(url)
                 # Retrieve the JSON data as a dictionary
                 peer_node_data = response.json()
-                node_chain = peer_node_data
+                node_chain = peer_node_data['chain']
                 # Convert the dictionary list to a list of block AND
                 # transaction objects
 
@@ -414,13 +412,12 @@ class Blockchain:
             # get transactions from winning chain to replace the local ones
             url = 'http://{}/gettransactions'.format(winning_node)
             response = requests.get(url)
-            transactions = response.json()
-
+            transactions_object = response.json()
+            transactions = transactions_object['transactions']
             session = Session()
-            local_transactions = session.query(Transaction).all()
-            local_blockchain = session.query(Blockchain).all()
-            session.delete(local_transactions)
-            session.delete(local_blockchain)
+            # delete local content of databases
+            session.query(Transaction).delete()
+            session.query(Block).delete()
             try:
                 session.commit()
             except NoResultFound as e:
