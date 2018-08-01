@@ -259,12 +259,13 @@ def get_chain():
 
 @app.route('/gettransactions', methods=['GET'])
 def get_winning_chain_transactions():
-    transactions = blockchain.get_all_transactions
+    transactions = blockchain.get_all_transactions()
 
     response = {
         'transactions': transactions
     }
     return jsonify(response), 200
+
 
 @app.route('/getnode', methods=['GET'])
 def get_own_node():

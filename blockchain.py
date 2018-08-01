@@ -71,17 +71,12 @@ class Blockchain:
         """Initialize blockchain + open transactions data from a file."""
 
         session = Session()
-        blockchain = []
-        for block in session.query(Block).all():
-            dict_block = block.__dict__.copy()
-            del dict_block['_sa_instance_state']
-            blockchain.append(dict_block)
+        blockchain_objects = session.query(Block).all()
+        blockchain = self.make_sendable_list(blockchain_objects)
 
-        all_mined_transactions = []
-        for row in session.query(Transaction).filter(Transaction.mined == 1).all():
-            dict_tx = row.__dict__.copy()
-            del dict_tx['_sa_instance_state']
-            all_mined_transactions.append(dict_tx)
+        all_mined_transactions_objects = session.query(Transaction)\
+            .filter(Transaction.mined == 1).all()
+        all_mined_transactions = self.make_sendable_list(all_mined_transactions_objects)
 
         session.close()
         self.chain = blockchain
@@ -96,22 +91,14 @@ class Blockchain:
             self.chain = session.query(Block).all()
             session.close()
 
-        open_transactions = []
         session = Session()
-        for tx in session.query(Transaction) \
-                .filter(Transaction.mined == 0).all():
-            dict_tx = tx.__dict__.copy()
-            del dict_tx['_sa_instance_state']
-            open_transactions.append(dict_tx)
+        open_transactions_objects = session.query(Transaction)\
+            .filter(Transaction.mined == 0).all()
+        open_transactions = self.make_sendable_list(open_transactions_objects)
         self.__open_transactions = open_transactions
-        session.close()
 
-        peer_nodes = []
-        session = Session()
-        for node in session.query(Node).all():
-            dict_node = node.__dict__.copy()
-            del dict_node['_sa_instance_state']
-            peer_nodes.append(dict_node)
+        peer_nodes_objects = session.query(Node).all()
+        peer_nodes = self.make_sendable_list(peer_nodes_objects)
         self.__peer_nodes = peer_nodes
         session.close()
         # try:
@@ -190,13 +177,14 @@ class Blockchain:
             return None
         return self.__chain[-1]
 
-    @staticmethod
-    def get_all_transactions():
+    def get_all_transactions(self):
         """Returns all transactions of the local blockchain"""
         session = Session()
         all_transactions = session.query(Transaction).all()
         session.close()
-        return all_transactions[:]
+
+        sendable_tx = self.make_sendable_list(all_transactions)
+        return sendable_tx
 
     # This function accepts two arguments.
     # One required one (transaction_amount) and one optional one
@@ -300,11 +288,7 @@ class Blockchain:
             filter(Transaction.block == block_index).all()
         session.close()
 
-        sendable_tx = []
-        for tx in mined_transactions:
-            dict_tx = tx.__dict__.copy()
-            del dict_tx['_sa_instance_state']
-            sendable_tx.append(dict_tx)
+        sendable_tx = self.make_sendable_list(mined_transactions)
 
         dict_block = converted_block.__dict__.copy()
         del dict_block['_sa_instance_state']
@@ -393,8 +377,6 @@ class Blockchain:
         # Initialize the winner chain with the local chain
         winner_chain = self.chain
         winning_node = self.node_id
-        mined_txs = []
-        open_txs = []
         replace = False
         for node in self.__peer_nodes:
             url = 'http://{}/chain'.format(node['id'])
@@ -505,3 +487,14 @@ class Blockchain:
         """Return own node ID"""
         # self.add_peer_node(f"localhost:{self.node_id}")
         return self.node_id
+
+    @staticmethod
+    def make_sendable_list(list_of_objects):
+        """Converts list of objects to list of dicts so that those can be sent"""
+        dict_list = []
+        for item in list_of_objects:
+            dict_item = item.__dict__.copy()
+            del dict_item['_sa_instance_state']
+            dict_list.append(dict_item)
+
+        return dict_list
