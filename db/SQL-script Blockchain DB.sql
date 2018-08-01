@@ -7,70 +7,45 @@
 -- two dots ('..' - without quotes).
 
 CREATE TABLE `blockchain` (
-    `index` bigint  NOT NULL ,
-    `previous_hash` string  NOT NULL ,
-    `transactions` string ,
-    `proof` bigint ,
-    `timestamp` float  NOT NULL ,
+    `index` INTEGER  NOT NULL ,
+    `previous_hash` TEXT  NOT NULL ,
+    `hash_of_txs` TEXT ,
+    `proof` INTEGER ,
+    `timestamp` REAL  NOT NULL ,
     PRIMARY KEY (
         `index`
     ),
-    FOREIGN KEY (transactions) REFERENCES transactions(signature)
+    FOREIGN KEY (`index`) REFERENCES transactions(block)
 );
 
 CREATE TABLE `wallet` (
-    `public_key` blob NOT NULL ,
+    `public_key` text NOT NULL ,
+    `node_id` text not NULL ,
     PRIMARY KEY (
         `public_key`
     )
 );
 
 CREATE TABLE `transactions` (
-    `sender` string  NOT NULL ,
-    `recipient` string  NOT NULL ,
-    `amount` float  NOT NULL ,
-    `signature` string  NOT NULL ,
+    `sender` TEXT  NOT NULL ,
+    `recipient` TEXT  NOT NULL ,
+    `amount` REAL  NOT NULL ,
+    `signature` TEXT  NOT NULL ,
+    `mined` INTEGER NOT NULL,
+    `block` text,
+    `time` REAL,
     PRIMARY KEY (
         `signature`
-    ), 
-    FOREIGN KEY (sender) REFERENCES `wallet` (`public_key`), 
-    FOREIGN KEY (recipient) REFERENCES `wallet` (`public_key`) 
+    ),
+    FOREIGN KEY (sender) REFERENCES `wallet` (`public_key`),
+    FOREIGN KEY (recipient) REFERENCES `wallet` (`public_key`),
+    FOREIGN KEY (block) REFERENCES `blockchain` (`index`)
 );
 
 CREATE TABLE `peer_nodes` (
-    `id` string  NOT NULL ,
-    `public_key` string  NOT NULL ,
+    `id` TEXT  NOT NULL ,
     PRIMARY KEY (
         `id`
     ),
-    FOREIGN KEY (public_key) REFERENCES wallet(public_key)
+    FOREIGN KEY (`id`) REFERENCES wallet(`node_id`)
 );
-
-
-
-# Modify this code to update the DB schema diagram.
-# To reset the sample schema, replace everything with
-# two dots ('..' - without quotes).
-
-Blockchain
--
-previous_hash PK string
-timestamp float 
-signature_of_transactions string
-index bigint
-
-Wallet
--
-public_key PK string FK - Peer_nodes.public_key
-
-Transactions
--
-signature string pk FK - Blockchain.signature_of_transactions
-sender string FK >- Wallet.public_key
-recipient string FK >- Wallet.public_key
-amount float
-
-Peer_nodes
--
-id string pk
-public_key string

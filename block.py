@@ -1,11 +1,13 @@
 from time import time
-
+from sqlalchemy import Column, Integer, Text, REAL
+from sqlalchemy.orm import relationship
 from utility.printable import Printable
+from utility.database import Base
+from collections import OrderedDict
 
 
-class Block(Printable):
+class Block(Printable, Base):
     """A single block of our blockchain.
-
     Attributes:
         :index: The index of this block.
         :previous_hash: The hash of the previous block in the blockchain.
@@ -14,10 +16,26 @@ class Block(Printable):
         :transactions: A list of transaction which are included in the block.
         :proof: The proof of work number that yielded this block.
     """
+    __tablename__ = 'blockchain'
+    index = Column(Integer, primary_key=True)
+    previous_hash = Column(Text, nullable=False)
+    hash_of_txs = Column(Text, nullable=False)
+    proof = Column(Integer, nullable=False)
+    timestamp = Column(REAL, nullable=False)
 
-    def __init__(self, index, previous_hash, transactions, proof, time=time()):
+    tx_in_block = relationship("Transaction", back_populates="tx_in_block")
+
+    def __init__(self, index, previous_hash, hash_of_txs, proof, time=time()):
         self.index = index
         self.previous_hash = previous_hash
-        self.timestamp = time
-        self.transactions = transactions
+        self.hash_of_txs = hash_of_txs
         self.proof = proof
+        self.timestamp = time
+
+    def block_to_ordered_dict(self):
+        """Converts this block into a (hashable) OrderedDict."""
+        return OrderedDict([('index', self.index),
+                            ('previous_hash', self.previous_hash),
+                            ('hash_of_txs', self.hash_of_txs),
+                            ('proof', self.proof),
+                            ('timestamp', self.timestamp)])

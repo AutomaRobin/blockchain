@@ -35,6 +35,9 @@
                         </li>
                     </ul>
                 </div>
+                <div class="col">
+                    <p class="float-right">Your node: {{ yourNode }}</p>
+                </div>
             </div>
             <hr>
             <div class="row">
@@ -58,7 +61,7 @@
                 <div class="col">
                     <ul class="list-group">
                         <button v-for="node in nodes" style="cursor: pointer;" class="list-group-item list-group-item-action" @click="onRemoveNode(node)">
-                            {{ node }} (click to delete)
+                            <span v-if="node === yourNode" class="badge badge-info">Your node </span> {{ node }} (click to delete)
                         </button>
                     </ul>
                 </div>
@@ -73,6 +76,7 @@
             el: '#app',
             data: {
                 nodes: [],
+                yourNode: '',
                 newNodeUrl: '',
                 error: null,
                 success: null
@@ -83,9 +87,15 @@
                     var vm = this;
                     axios.post('/node', { node: this.newNodeUrl })
                         .then(function (response) {
-                            vm.success = 'Stored node successfully.';
+                            vm.success = response.data.message;
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            for(let i = 0; i < response.data.all_nodes.length; i++) {
+                                if (vm.nodes.includes(response.data.all_nodes[i].id)) {
+                                    continue;
+                                } else {
+                                    vm.nodes.push(response.data.all_nodes[i].id);
+                                }
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;
@@ -99,7 +109,13 @@
                         .then(function (response) {
                             vm.success = 'Fetched nodes successfully.';
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            for(let i = 0; i < response.data.all_nodes.length; i++) {
+                                if (vm.nodes.includes(response.data.all_nodes[i].id)) {
+                                    continue;
+                                } else {
+                                    vm.nodes.push(response.data.all_nodes[i].id);
+                                }
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;
@@ -111,16 +127,30 @@
                     var vm = this;
                     axios.delete('/node/' + node_url)
                         .then(function (response) {
-                            vm.success = 'Deleted node successfully.';
+                            vm.success = response.data.message;
                             vm.error = null;
-                            vm.nodes = response.data.all_nodes
+                            let index = vm.nodes.indexOf(node_url);
+                            if (index > -1) {
+                                vm.nodes.splice(index, 1)
+                            }
                         })
                         .catch(function (error) {
                             vm.success = null;
                             vm.error = error.response.data.message;
                         });
                 }
-            }
+            },
+            created() {
+                var vm = this;
+                axios.get('/getnode')
+                    .then(function (response) {
+                        vm.yourNode = 'localhost:' + response.data;
+                        vm.nodes.push('localhost:' + response.data)
+                    })
+                    .catch(function () {
+                        vm.yourNode = 'No node set'
+                    })
+                }
         })
     </script>
 </body>

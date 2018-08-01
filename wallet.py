@@ -3,18 +3,26 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 import Crypto.Random
 import binascii
-from os import path
-from base64 import b64decode
-from utility.database import Database
+from sqlalchemy import Column, Text, text, ForeignKey
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm import relationship
+from utility.database import Base, Session
+from time import time
 
 
-class Wallet:
+class Wallet(Base):
     """Creates, loads and holds private and public keys. Manages transaction
     signing and verification."""
 
-    def __init__(self, node_id):
-        self.private_key = None
-        self.public_key = None
+    __tablename__ = 'wallet'
+    public_key = Column(Text, primary_key=True, nullable=False)
+    node_id = Column(Text, ForeignKey('peer_nodes.id'), nullable=False)
+
+    peer_node_id = relationship("Node", back_populates="wallet_id")
+
+    def __init__(self, node_id, private_key=None, public_key=None):
+        self.private_key = private_key
+        self.public_key = public_key
         self.node_id = node_id
 
     def create_keys(self):
@@ -27,11 +35,13 @@ class Wallet:
         """Saves the keys to a file (wallet.txt)."""
         if self.public_key is not None and self.private_key is not None:
             try:
-                db = Database("db/blockchaindb.sqlite")
                 with open('wallet-{}.txt'.format(self.node_id), mode='w') as f:
                     f.write(self.private_key)
-                db.write("wallet", "public_key", self.public_key)
-                db.close()
+                session = Session()
+                wallet = Wallet(node_id=self.node_id, public_key=self.public_key)
+                session.add(wallet)
+                session.commit()
+                session.close()
                 return True
             except (IOError, IndexError):
                 print('Saving wallet failed...')
@@ -49,18 +59,18 @@ class Wallet:
 
         # Pass the candidate key for the
         # SQL query and search database for the public_key
-        db = Database("db/blockchaindb.sqlite")
-        public_key = db.get_wallet(query_key)
-        db.close()
-        print(public_key)
-
-        if not public_key:
+        session = Session()
+        try:
+            public_key = session.query(Wallet.public_key)\
+                .filter(text('public_key == :query_key')).params(query_key=query_key)\
+                .one()
+        except NoResultFound:
             return False
+        session.close()
 
-        if public_key:
-            self.public_key = public_key
-            self.private_key = private_key
-            return True
+        self.public_key = ''.join(public_key)
+        self.private_key = private_key
+        return True
 
     @staticmethod
     def generate_keys():
@@ -84,12 +94,13 @@ class Wallet:
             :recipient: The recipient of the transaction.
             :amount: The amount of the transaction.
         """
+        timed = time()
         signer = PKCS1_v1_5.new(RSA.importKey(
             binascii.unhexlify(self.private_key)))
         h = SHA256.new((str(sender) + str(recipient) +
-                        str(amount)).encode('utf8'))
+                        str(amount) + str(timed)).encode('utf8'))
         signature = signer.sign(h)
-        return binascii.hexlify(signature).decode('ascii')
+        return binascii.hexlify(signature).decode('ascii'), timed
 
     @staticmethod
     def verify_transaction(transaction):
@@ -98,8 +109,17 @@ class Wallet:
         Arguments:
             :transaction: The transaction that should be verified.
         """
-        public_key = RSA.importKey(binascii.unhexlify(transaction.sender))
+        # delete the columns which are variable
+        dict_tx = transaction.copy()
+        del dict_tx['mined']
+        del dict_tx['block']
+
+        public_key = RSA.importKey(binascii.unhexlify(dict_tx['sender']))
         verifier = PKCS1_v1_5.new(public_key)
-        h = SHA256.new((str(transaction.sender) + str(transaction.recipient) +
-                        str(transaction.amount)).encode('utf8'))
-        return verifier.verify(h, binascii.unhexlify(transaction.signature))
+        h = SHA256.new((str(dict_tx['sender']) + str(dict_tx['recipient']) +
+                        str(dict_tx['amount']) + str(dict_tx['time'])).encode('utf8'))
+        return verifier.verify(h, binascii.unhexlify(dict_tx['signature']))
+
+    @classmethod
+    def get_node_id(cls):
+        return 'localhost:' + str(cls.node_id)

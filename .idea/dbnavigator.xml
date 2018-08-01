@@ -25,13 +25,18 @@
     <show-object-properties value="true" />
     <loaded-nodes>
       <connection connection-id="520af58e-5d17-4c44-9497-acd6854c6396">
-        <schema name="main" object-types="column, table, view" />
+        <schema name="main" object-types="table" />
       </connection>
     </loaded-nodes>
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="520af58e-5d17-4c44-9497-acd6854c6396">
-      <console name="Blockchain DB Connection" type="STANDARD"><![CDATA[DELETE from wallet]]></console>
+      <console name="Blockchain DB Connection" type="STANDARD"><![CDATA[delete from transactions;
+delete from blockchain;
+delete from peer_nodes;
+delete from wallet;
+select * from blockchain;
+select * from transactions;]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
