@@ -77,5 +77,5 @@ class Verification:
                 'message': 'No wallet set up!',
                 'wallet_set_up': public_key is not None
             }
-            return jsonify(response), 500
+            return jsonify(response), 401
         return True

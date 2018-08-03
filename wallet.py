@@ -51,11 +51,14 @@ class Wallet(Base):
         """Loads the wallet based on the private key."""
 
         # prepare the private_key input to be transformed to the public_key
-        hex_to_pem = binascii.unhexlify(''.join(private_key))
-        pem_key = b'%s' % hex_to_pem
-        kep_priv = RSA.importKey(pem_key)
-        candidate_key = kep_priv.publickey()
-        query_key = binascii.hexlify(candidate_key.exportKey(format='DER')).decode('ascii')
+        try:
+            hex_to_pem = binascii.unhexlify(''.join(private_key))
+            pem_key = b'%s' % hex_to_pem
+            kep_priv = RSA.importKey(pem_key)
+            candidate_key = kep_priv.publickey()
+            query_key = binascii.hexlify(candidate_key.exportKey(format='DER')).decode('ascii')
+        except ValueError as e:
+            return e
 
         # Pass the candidate key for the
         # SQL query and search database for the public_key
@@ -64,8 +67,8 @@ class Wallet(Base):
             public_key = session.query(Wallet.public_key)\
                 .filter(text('public_key == :query_key')).params(query_key=query_key)\
                 .one()
-        except NoResultFound:
-            return False
+        except NoResultFound as e:
+            return e
         session.close()
 
         self.public_key = ''.join(public_key)
