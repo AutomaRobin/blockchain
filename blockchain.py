@@ -101,16 +101,6 @@ class Blockchain:
         peer_nodes = self.make_sendable_list(peer_nodes_objects)
         self.__peer_nodes = peer_nodes
         session.close()
-        # try:
-        #     with open('blockchain-{}.txt'.format(self.node_id), mode='r') as f:
-        #         # # file_content = pickle.loads(f.read())
-        #         file_content = f.readlines()
-        #         peer_nodes = json.loads(file_content[0])
-        #         self.__peer_nodes = set(peer_nodes)
-        # except (IOError, IndexError):
-        #     pass
-        # finally:
-        #     print('Cleanup!')
 
     def proof_of_work(self, merkle_hash):
         """Generate a proof of work for the open transactions, the hash of the
@@ -201,7 +191,9 @@ class Blockchain:
         Arguments:
             :sender: The sender of the coins.
             :recipient: The recipient of the coins.
+            :signature: The signature of the transaction.
             :amount: The amount of coins sent with the transaction
+            :time: The time when the transaction was made (generated with time())
             (default = 1.0)
         """
         session = Session()
@@ -241,12 +233,14 @@ class Blockchain:
         last_block = self.__chain[-1]
         # Hash the last block (=> to be able to compare it to the stored hash
         # value)
-        block_index = len(self.__chain)
+        block_index = int(len(self.__chain))
+        print(block_index)
         self.load_data()
         reward_transaction = Transaction(
             'MINING', str(self.public_key),
             'REWARD FOR MINING BLOCK {}'.format(block_index),
             MINING_REWARD, 1, block_index, time())
+        print("rwd tx: ", reward_transaction.block)
         # Copy transaction instead of manipulating the original
         # open_transactions list
         # This ensures that if for some reason the mining should fail,
@@ -316,6 +310,7 @@ class Blockchain:
         # Check if previous_hash stored in the block is equal to the local
         # blockchain's last block's hash and store the result in a block
         last_block = self.__chain[-1]
+        index_of_block = block['index']
         hashes_match = hash_block(last_block) == block['previous_hash']
         if not proof_is_valid or not hashes_match:
             return False
@@ -323,7 +318,7 @@ class Blockchain:
         # Create a Block object
         session = Session()
         converted_block = Block(
-            block['index'],
+            index_of_block,
             block['previous_hash'],
             block['hash_of_txs'],
             block['proof'],
@@ -338,7 +333,7 @@ class Blockchain:
             reward_transaction['recipient'],
             reward_transaction['signature'],
             reward_transaction['amount'],
-            1, block['index'],
+            1, index_of_block,
             reward_transaction['time'])
         session.add(reward_tx)
 
@@ -360,7 +355,7 @@ class Blockchain:
                 continue
 
         for tx in mined_transactions:
-            tx.block = block['index']
+            tx.block = index_of_block
             tx.mined = 1
 
         session.commit()
@@ -487,7 +482,11 @@ class Blockchain:
 
     @staticmethod
     def make_sendable_list(list_of_objects):
-        """Converts list of objects to list of dicts so that those can be sent"""
+        """Converts list of objects to list of dicts so that the list can be sent
+
+        Arguments:
+            :list_of_objects: A SQLAlchemy list of objects
+        """
         dict_list = []
         for item in list_of_objects:
             dict_item = item.__dict__.copy()

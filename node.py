@@ -4,20 +4,12 @@ from flask_cors import CORS
 from wallet import Wallet
 from blockchain import Blockchain
 from utility.verification import Verification
+import sqlalchemy.orm.exc
 
 
 v = Verification()
 app = Flask(__name__)
 CORS(app)
-
-@app.route('/', methods=['GET'])
-def get_node_ui():
-    return send_from_directory('ui', 'node.html')
-
-
-@app.route('/network', methods=['GET'])
-def get_network_ui():
-    return send_from_directory('ui', 'network.html')
 
 
 @app.route('/wallet', methods=['POST'])
@@ -62,6 +54,16 @@ def load_keys():
             'funds': blockchain.get_balance()
         }
         return jsonify(response), 201
+    elif ValueError:
+        response = {
+            'message': 'No valid key given.'
+        }
+        return jsonify(response), 400
+    elif sqlalchemy.orm.exc.NoResultFound:
+        response = {
+            'message': 'No wallet found for given private key.'
+        }
+        return jsonify(response), 404
     else:
         response = {
             'message': 'Loading the keys failed.'
@@ -262,7 +264,6 @@ def get_chain():
 @app.route('/gettransactions', methods=['GET'])
 def get_winning_chain_transactions():
     transactions = blockchain.get_all_transactions()
-
     response = {
         'transactions': transactions
     }
